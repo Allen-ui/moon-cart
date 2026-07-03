@@ -93,7 +93,7 @@ export const useShopStore = create<ShopState>()(
       }
     }),
     {
-      name: "justbuy-storage",
+      name: "moon-cart-storage",
       partialize: (state) => ({ cart: state.cart, stats: state.stats })
     }
   )

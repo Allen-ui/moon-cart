@@ -1,4 +1,4 @@
-# 就爱买小程序壳配置说明
+# 睡前逛逛 Moon Cart 小程序壳配置说明
 
 这个目录是微信小程序 `web-view` 套壳版本，用来加载已经部署好的 H5 页面。
 
@@ -9,7 +9,7 @@
 
 2. 打开 `pages/index/index.js`
    - 把 `h5Url` 改成你的线上 H5 地址，例如：
-     `https://justbuy.example.com`
+     `https://moon-cart.example.com`
 
 ## 微信后台需要配置
 

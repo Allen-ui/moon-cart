@@ -1,5 +1,5 @@
 {
-  "description": "JustBuy web-view shell",
+  "description": "Moon Cart web-view shell",
   "packOptions": {
     "ignore": [],
     "include": []
@@ -31,9 +31,9 @@
     }
   },
   "compileType": "miniprogram",
-  "libVersion": "latest",
+  "libVersion": "3.15.2",
   "appid": "wx4e1b9282d794764b",
-  "projectname": "justbuy-miniprogram-shell",
+  "projectname": "moon-cart-miniprogram-shell",
   "condition": {},
   "editorSetting": {
     "tabIndent": "insertSpaces",

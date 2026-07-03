@@ -34,7 +34,7 @@ const deliverySteps = [
 
 const money = (value: number) => `¥${Math.round(value)}`;
 
-export default function JustBuyApp() {
+export default function MoonCartApp() {
   const [view, setView] = useState<View>("home");
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>();
   const [selectedProduct, setSelectedProduct] = useState<Product>(products[0]);
@@ -99,7 +99,7 @@ export default function JustBuyApp() {
             <section className="flex min-h-[calc(100vh-8rem)] flex-col justify-between py-6">
               <div>
                 <div className="mb-8 flex items-center justify-between">
-                  <div className="text-sm text-quiet">JustBuy</div>
+                  <div className="text-sm text-quiet">Moon Cart</div>
                   <button className="rounded-full bg-white p-3 shadow-soft" onClick={() => setView("mine")} aria-label="我的">
                     <UserRound size={19} />
                   </button>
