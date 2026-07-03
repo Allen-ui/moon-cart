@@ -1,5 +1,5 @@
 {
-  "description": "Moon Cart web-view shell",
+  "description": "Moon Cart native miniprogram MVP",
   "packOptions": {
     "ignore": [],
     "include": []

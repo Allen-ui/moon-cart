@@ -1,1 +1,172 @@
-<web-view src="{{h5Url}}" />
+<view class="page">
+  <view wx:if="{{view == 'home'}}" class="screen home">
+    <view class="brand-row">
+      <text class="brand">Moon Cart</text>
+      <view class="round-button" bindtap="openMine">我的</view>
+    </view>
+    <view class="hero">
+      <text class="title">今晚</text>
+      <text class="title">睡前逛逛</text>
+      <text class="subtitle">不用花钱。</text>
+      <text class="subtitle small-gap">放心买。</text>
+    </view>
+    <view class="entry-grid">
+      <view class="entry" bindtap="openList"><text class="entry-icon">🍔</text><text>想吃点好的</text></view>
+      <view class="entry" bindtap="openList"><text class="entry-icon">📱</text><text>数码科技</text></view>
+      <view class="entry" bindtap="openList"><text class="entry-icon">👟</text><text>潮流鞋服</text></view>
+      <view class="entry" bindtap="openList"><text class="entry-icon">💄</text><text>美妆护肤</text></view>
+      <view class="entry" bindtap="openList"><text class="entry-icon">🛍</text><text>随便逛逛</text></view>
+      <view class="entry" bindtap="openCart"><text class="entry-icon">❤️</text><text>我的购物车</text></view>
+    </view>
+    <text class="footnote">今天所有快乐 免费。</text>
+  </view>
+
+  <view wx:elif="{{view == 'list'}}" class="screen">
+    <view class="topbar">
+      <view class="icon-button" bindtap="goHome">←</view>
+      <text class="top-title">睡前精选</text>
+      <view class="cart-button" bindtap="openCart">
+        <text>🛒</text>
+        <text wx:if="{{cartCount > 0}}" class="cart-badge">{{cartCount}}</text>
+      </view>
+    </view>
+    <view class="product-grid">
+      <view class="product-column">
+        <block wx:for="{{leftProducts}}" wx:key="id">
+          <view class="card" bindtap="openDetail" data-id="{{item.id}}">
+            <view class="visual"><text>{{item.emoji}}</text></view>
+            <text class="product-title">{{item.title}}</text>
+            <view class="meta">
+              <text class="price">¥{{item.price}}</text>
+              <text class="sales">销量 {{item.sales}}</text>
+            </view>
+            <text class="tag">{{item.tag}}</text>
+          </view>
+        </block>
+      </view>
+      <view class="product-column">
+        <block wx:for="{{rightProducts}}" wx:key="id">
+          <view class="card" bindtap="openDetail" data-id="{{item.id}}">
+            <view class="visual"><text>{{item.emoji}}</text></view>
+            <text class="product-title">{{item.title}}</text>
+            <view class="meta">
+              <text class="price">¥{{item.price}}</text>
+              <text class="sales">销量 {{item.sales}}</text>
+            </view>
+            <text class="tag">{{item.tag}}</text>
+          </view>
+        </block>
+      </view>
+    </view>
+  </view>
+
+  <view wx:elif="{{view == 'detail'}}" class="screen">
+    <view class="topbar">
+      <view class="icon-button" bindtap="openList">←</view>
+      <text class="top-title">商品详情</text>
+      <view class="cart-button" bindtap="openCart">
+        <text>🛒</text>
+        <text wx:if="{{cartCount > 0}}" class="cart-badge">{{cartCount}}</text>
+      </view>
+    </view>
+    <view class="detail-visual"><text>{{selected.emoji}}</text></view>
+    <view class="panel">
+      <text class="detail-title">{{selected.title}}</text>
+      <text class="detail-price">¥{{selected.price}}</text>
+      <text class="copy">销量 {{selected.sales}} · 这是一份不用犹豫的虚拟奖励。下单成功但不会发货，也不会产生真实支付。</text>
+      <text class="coupon">优惠券 满{{selected.price}}减20</text>
+    </view>
+    <view class="action-bar">
+      <view class="light-action" bindtap="addToCart">加入购物车</view>
+      <view class="dark-action" bindtap="startOrder" data-amount="{{selected.price}}">立即下单</view>
+    </view>
+  </view>
+
+  <view wx:elif="{{view == 'cart'}}" class="screen">
+    <view class="topbar">
+      <view class="icon-button" bindtap="goHome">←</view>
+      <text class="top-title">购物车</text>
+      <view class="spacer"></view>
+    </view>
+    <view wx:if="{{cart.length == 0}}" class="empty">
+      <text class="empty-icon">🛒</text>
+      <text class="detail-title">购物车还是空的</text>
+      <view class="dark-action single" bindtap="openList">继续逛逛</view>
+    </view>
+    <view wx:else>
+      <block wx:for="{{cart}}" wx:key="id">
+        <view class="cart-row">
+          <text class="cart-emoji">{{item.emoji}}</text>
+          <view class="cart-info">
+            <text class="product-title">{{item.title}}</text>
+            <text class="sales">数量 x {{item.quantity}}</text>
+            <text class="price">¥{{item.price}}</text>
+          </view>
+          <view class="delete" bindtap="removeItem" data-id="{{item.id}}">删除</view>
+        </view>
+      </block>
+      <view class="panel">
+        <text class="copy">系统会自动计算优惠，但你实际支付永远是 ¥0。</text>
+        <view class="dark-action single" bindtap="startOrder" data-amount="{{cartTotal}}">立即下单</view>
+      </view>
+    </view>
+  </view>
+
+  <view wx:elif="{{view == 'order'}}" class="center">
+    <text class="big-icon">✅</text>
+    <text class="done-title">订单生成成功</text>
+    <text class="copy center-copy">正在联系商家…</text>
+    <text class="copy center-copy">预计马上开始配送…</text>
+  </view>
+
+  <view wx:elif="{{view == 'delivery'}}" class="center">
+    <view class="map">
+      <text class="shop">🛍</text>
+      <text class="rider">🛵</text>
+      <text class="home-icon">🏠</text>
+    </view>
+    <text class="done-title">{{deliveryText}}</text>
+    <text class="copy center-copy">这是模拟配送，不会产生真实物流。</text>
+  </view>
+
+  <view wx:elif="{{view == 'done'}}" class="center">
+    <text class="big-icon">🎉</text>
+    <text class="done-title">快乐已送达</text>
+    <text class="copy center-copy">今天辛苦了。</text>
+    <text class="copy center-copy">虽然什么都没有收到。</text>
+    <text class="copy center-copy">但你已经奖励了努力生活的自己。</text>
+    <view class="result">
+      <text>本次订单金额 ¥{{orderAmount}}</text>
+      <text>实际支付 ¥0</text>
+      <text>今日快乐值 +100</text>
+    </view>
+    <view class="dark-action single" bindtap="goHome">返回首页</view>
+  </view>
+
+  <view wx:elif="{{view == 'mine'}}" class="screen">
+    <view class="topbar">
+      <view class="icon-button" bindtap="goHome">←</view>
+      <text class="top-title">我的</text>
+      <view class="spacer"></view>
+    </view>
+    <view class="black-panel">
+      <text>累计虚拟消费</text>
+      <text class="spend">¥{{totalSpend}}</text>
+      <text>所有快乐都没有真的扣款。</text>
+    </view>
+    <view class="stats">
+      <view><text>{{happyCount}}</text><text>快乐次数</text></view>
+      <view><text>{{viewedCount}}</text><text>浏览商品</text></view>
+      <view><text>1天</text><text>连续打卡</text></view>
+      <view><text>{{badgeCount}}</text><text>获得徽章</text></view>
+    </view>
+    <view class="badge-panel">
+      <text class="section-title">徽章</text>
+      <view class="badge-list">
+        <text class="badge active">🏅 首次快乐</text>
+        <text class="badge">🌙 深夜常客</text>
+        <text class="badge">🛒 虚拟大买家</text>
+      </view>
+    </view>
+  </view>
+</view>
