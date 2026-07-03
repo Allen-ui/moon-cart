@@ -122,28 +122,28 @@ const shortMoney = (value: number) => {
 };
 
 const pinyinMap: Record<string, string[]> = {
-  "牛": ["niu"], "奶": ["nai"], "茶": ["cha"], "奶": ["nai"],
+  "牛": ["niu"], "奶": ["nai"], "茶": ["cha"],
   "鸡": ["ji"], "肉": ["rou"], "饭": ["fan"], "面": ["mian"],
   "包": ["bao"], "子": ["zi"], "饺": ["jiao"], "披": ["pi"], "萨": ["sa"],
   "汉": ["han"], "堡": ["bao"], "薯": ["shu"], "条": ["tiao"], "可": ["ke"], "乐": ["le"],
   "电": ["dian"], "脑": ["nao"], "手": ["shou"], "机": ["ji"],
-  "耳": ["er"], "机": ["ji"], "键": ["jian"], "盘": ["pan"], "鼠": ["shu"], "标": ["biao"],
-  "手": ["shou"], "表": ["biao"], "眼": ["yan"], "镜": ["jing"],
-  "衣": ["yi"], "服": ["fu"], "鞋": ["xie"], "子": ["zi"], "帽": ["mao"],
+  "耳": ["er"], "键": ["jian"], "盘": ["pan"], "鼠": ["shu"], "标": ["biao"],
+  "表": ["biao"], "眼": ["yan"], "镜": ["jing"],
+  "衣": ["yi"], "服": ["fu"], "鞋": ["xie"], "帽": ["mao"],
   "裤": ["ku"], "裙": ["qun"], "袜": ["wa"],
   "口": ["kou"], "红": ["hong"], "唇": ["chun"], "膏": ["gao"],
-  "面": ["mian"], "膜": ["mo"], "洗": ["xi"], "面": ["mian"], "奶": ["nai"],
+  "膜": ["mo"], "洗": ["xi"],
   "水": ["shui"], "果": ["guo"], "蔬": ["shu"], "菜": ["cai"],
-  "海": ["hai"], "鲜": ["xian"], "肉": ["rou"], "蛋": ["dan"],
-  "零": ["ling"], "食": ["shi"], "糖": ["tang"], "果": ["guo"],
+  "海": ["hai"], "鲜": ["xian"], "蛋": ["dan"],
+  "零": ["ling"], "食": ["shi"], "糖": ["tang"],
   "巧": ["qiao"], "克": ["ke"], "力": ["li"], "饼": ["bing"], "干": ["gan"],
   "旅": ["lv"], "行": ["xing"], "酒": ["jiu"], "店": ["dian"],
-  "机": ["ji"], "票": ["piao"], "门": ["men"], "票": ["piao"],
-  "家": ["jia"], "具": ["ju"], "家": ["jia"], "居": ["ju"],
-  "枕": ["zhen"], "头": ["tou"], "被": ["bei"], "子": ["zi"],
-  "书": ["shu"], "本": ["ben"], "笔": ["bi"], "记": ["ji"], "本": ["ben"],
+  "票": ["piao"], "门": ["men"],
+  "家": ["jia"], "具": ["ju"], "居": ["ju"],
+  "枕": ["zhen"], "头": ["tou"], "被": ["bei"],
+  "书": ["shu"], "本": ["ben"], "笔": ["bi"], "记": ["ji"],
   "盲": ["mang"], "盒": ["he"], "幸": ["xing"], "运": ["yun"],
-  "运": ["yun"], "动": ["dong"], "健": ["jian"], "身": ["shen"],
+  "动": ["dong"], "健": ["jian"], "身": ["shen"],
   "器": ["qi"], "材": ["cai"],
 };
 
@@ -358,7 +358,7 @@ export default function MoonCartApp() {
   ) => {
     const orderItems = items?.length
       ? items.map((item) => ({ ...item }))
-      : [{ ...selectedProduct, quantity: 1 }];
+      : [{ ...selectedProduct, quantity: 1, finalPrice: selectedProduct.price }];
     const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
     setLastOrderAmount(amount);
     setLastOrderItems(orderItems);
@@ -981,13 +981,13 @@ export default function MoonCartApp() {
     if (blindBoxProduct) {
       const product = blindBoxProduct;
       addToCart(product);
-      completeOrder(product.price, [{ ...product, quantity: 1 }]);
+      completeOrder(product.price, [{ ...product, quantity: 1, finalPrice: product.price }]);
       setBlindBoxProduct(null);
       setBlindBoxExpireAt(null);
       setBlindBoxTimeLeft("");
       setBlindBoxOpened(false);
       setLastOrderAmount(product.price);
-      setLastOrderItems([{ ...product, quantity: 1 }]);
+      setLastOrderItems([{ ...product, quantity: 1, finalPrice: product.price }]);
       setIsBlindBoxOrder(true);
       setView("done");
     }
@@ -1436,7 +1436,7 @@ export default function MoonCartApp() {
                 className="flex-1 rounded-full bg-primary px-5 py-4 font-semibold text-white shadow-soft"
                 onClick={() =>
                   startOrder(calculateSpecPrice(selectedProduct, selectedSpecs), [
-                    { ...selectedProduct, quantity: 1, selectedSpecs, price: calculateSpecPrice(selectedProduct, selectedSpecs) },
+                    { ...selectedProduct, quantity: 1, selectedSpecs, price: calculateSpecPrice(selectedProduct, selectedSpecs), finalPrice: calculateSpecPrice(selectedProduct, selectedSpecs) },
                   ])
                 }
               >
