@@ -3,8 +3,25 @@
 @tailwind utilities;
 
 :root {
-  background: #f8f8f6;
-  color: #111111;
+  --bg-primary: #fff8f5;
+  --bg-card: #fff;
+  --bg-card-hover: #f8f8f8;
+  --text-primary: #1a1a1a;
+  --text-secondary: #8e8e93;
+  --text-tertiary: #c7c7cc;
+  --border-color: rgba(0, 0, 0, 0.05);
+  --shadow-color: rgba(0, 0, 0, 0.08);
+}
+
+.dark {
+  --bg-primary: #0a0a0a;
+  --bg-card: #1c1c1e;
+  --bg-card-hover: #2c2c2e;
+  --text-primary: #ffffff;
+  --text-secondary: #8e8e93;
+  --text-tertiary: #48484a;
+  --border-color: rgba(255, 255, 255, 0.08);
+  --shadow-color: rgba(0, 0, 0, 0.5);
 }
 
 * {
@@ -18,12 +35,25 @@ html {
 body {
   min-height: 100vh;
   margin: 0;
-  background:
-    radial-gradient(circle at 18% 8%, rgba(255, 107, 107, 0.08), transparent 28%),
-    linear-gradient(180deg, #fbfbf8 0%, #f8f8f6 42%, #fff 100%);
-  color: #111111;
+  background: var(--bg-primary);
+  color: var(--text-primary);
   font-family: HarmonyOS Sans, Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   letter-spacing: 0;
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+.light body {
+  background:
+    radial-gradient(circle at 12% 6%, rgba(255, 80, 0, 0.12), transparent 32%),
+    radial-gradient(circle at 88% 12%, rgba(255, 184, 0, 0.08), transparent 28%),
+    linear-gradient(180deg, #fff5f0 0%, #fff8f5 40%, #fff 100%);
+}
+
+.dark body {
+  background:
+    radial-gradient(circle at 12% 6%, rgba(255, 80, 0, 0.08), transparent 32%),
+    radial-gradient(circle at 88% 12%, rgba(255, 184, 0, 0.05), transparent 28%),
+    linear-gradient(180deg, #0a0a0a 0%, #121212 40%, #1c1c1e 100%);
 }
 
 button,

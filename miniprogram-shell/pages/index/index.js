@@ -1,9 +1,9 @@
 const products = [
   { id: 1, title: "寿司治愈拼盘", price: 118, sales: "7.0万", emoji: "🍣", tag: "治愈好物" },
   { id: 2, title: "韩式炸鸡半半", price: 86, sales: "15.4万", emoji: "🍗", tag: "今日热卖" },
-  { id: 3, title: "热辣螺蛳粉", price: 32, sales: "8.4万", emoji: "🍜", tag: "限时优惠" },
+  { id: 3, title: "热辣螺蛳粉", price: 32, sales: "8.4万", emoji: "🍜", tag: "深夜精选" },
   { id: 4, title: "椰子鸡汤锅", price: 139, sales: "16.8万", emoji: "🍲", tag: "新品" },
-  { id: 5, title: "茉莉奶绿", price: 23, sales: "9.2万", emoji: "🧋", tag: "0元下单" },
+  { id: 5, title: "茉莉奶绿", price: 23, sales: "9.2万", emoji: "🧋", tag: "快乐补给" },
   { id: 6, title: "云朵跑步鞋", price: 499, sales: "3.1万", emoji: "👟", tag: "快乐补给" },
   { id: 7, title: "降噪头戴耳机", price: 799, sales: "2.8万", emoji: "🎧", tag: "深夜精选" },
   { id: 8, title: "香薰蜡烛套装", price: 128, sales: "6.6万", emoji: "🕯", tag: "放心买" }
@@ -35,7 +35,7 @@ Page({
     cartCount: 0,
     selected: products[0],
     orderAmount: 0,
-    deliveryText: "订单生成",
+    deliveryText: "快乐生成",
     totalSpend: 0,
     happyCount: 0,
     viewedCount: 0,
@@ -99,7 +99,7 @@ Page({
       });
     }
     this.setData({ cart, cartTotal: this.sumCart(cart), cartCount: this.countCart(cart) });
-    wx.showToast({ title: "已加入购物车", icon: "success" });
+    wx.showToast({ title: "已放入心愿袋", icon: "success" });
   },
 
   removeItem(event) {
@@ -114,14 +114,14 @@ Page({
   startOrder(event) {
     const amount = Number(event.currentTarget.dataset.amount || this.data.selected.price);
     const self = this;
-    this.setData({ view: "order", orderAmount: amount, deliveryText: "订单生成" });
+    this.setData({ view: "order", orderAmount: amount, deliveryText: "快乐生成" });
     setTimeout(function () {
       self.runDelivery();
     }, 1200);
   },
 
   runDelivery() {
-    const steps = ["商家接单", "骑手接单", "骑手到店", "商品制作中", "已取货", "配送中 800m", "配送中 200m", "已送达"];
+    const steps = ["心愿确认", "快乐打包", "情绪充电", "正在靠近", "快乐值 +20", "快乐值 +60", "快乐值 +100", "已送达"];
     let index = 0;
     const self = this;
     this.setData({ view: "delivery" });

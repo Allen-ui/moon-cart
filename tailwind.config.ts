@@ -5,14 +5,19 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        paper: "#F8F8F6",
-        ink: "#111111",
+        paper: "#FFF8F5",
+        ink: "#1A1A1A",
+        primary: "#FF5000",
+        price: "#FF2D2D",
         coral: "#FF6B6B",
+        gold: "#FFB800",
         quiet: "#8E8E93",
-        mint: "#34C759"
+        mint: "#34C759",
+        "paper-soft": "#FFF5F0"
       },
       boxShadow: {
-        soft: "0 18px 45px rgba(17, 17, 17, 0.08)"
+        soft: "0 18px 45px rgba(17, 17, 17, 0.08)",
+        card: "0 8px 24px rgba(255, 80, 0, 0.08)"
       },
       fontFamily: {
         sans: ["HarmonyOS Sans", "Inter", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "sans-serif"]

@@ -4,19 +4,31 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Product } from "@/data/products";
 
-export type CartItem = Product & { quantity: number };
+export type CartItem = Product & {
+  quantity: number;
+  selectedSpecs?: Record<string, string>;
+  finalPrice: number;
+};
 
 export type PurchaseRecord = {
   id: string;
   createdAt: string;
   amount: number;
   items: CartItem[];
+  afterSaleStatus?: "none" | "applied" | "processing" | "completed";
+  afterSaleAppliedAt?: string;
 };
 
 export type WishItem = {
   id: string;
   title: string;
   note?: string;
+  createdAt: string;
+};
+
+export type FavoriteItem = {
+  productId: number;
+  product: Product;
   createdAt: string;
 };
 
@@ -34,16 +46,21 @@ type Stats = {
   badges: string[];
   purchases: PurchaseRecord[];
   wishlist: WishItem[];
+  favorites: FavoriteItem[];
   messages: MessageItem[];
   lastVisitDate?: string;
+  avatar?: string;
+  nickname?: string;
 };
 
 type ShopState = {
   cart: CartItem[];
   stats: Stats;
-  addToCart: (product: Product) => void;
+  addToCart: (product: Product, selectedSpecs?: Record<string, string>, finalPrice?: number) => void;
   addToWishlist: (title: string, note?: string) => void;
   removeFromWishlist: (id: string) => void;
+  toggleFavorite: (product: Product) => void;
+  isFavorite: (productId: number) => boolean;
   addMessage: (content: string) => void;
   removeFromCart: (id: number) => void;
   changeQuantity: (id: number, delta: number) => void;
@@ -51,6 +68,10 @@ type ShopState = {
   markProductViewed: () => void;
   completeOrder: (amount: number, items?: CartItem[]) => void;
   refreshStreak: () => void;
+  applyAfterSale: (id: string) => void;
+  completeAfterSale: (id: string) => void;
+  setAvatar: (avatar: string) => void;
+  setNickname: (nickname: string) => void;
 };
 
 const todayKey = () => new Date().toISOString().slice(0, 10);
@@ -69,6 +90,7 @@ const initialStats: Stats = {
   badges: [],
   purchases: [],
   wishlist: [],
+  favorites: [],
   messages: []
 };
 
@@ -77,15 +99,25 @@ export const useShopStore = create<ShopState>()(
     (set, get) => ({
       cart: [],
       stats: initialStats,
-      addToCart: (product) =>
+      addToCart: (product, selectedSpecs, finalPrice) =>
         set((state) => {
-          const existing = state.cart.find((item) => item.id === product.id);
+          const price = finalPrice ?? product.price;
+          const existing = state.cart.find(
+            (item) =>
+              item.id === product.id &&
+              JSON.stringify(item.selectedSpecs) === JSON.stringify(selectedSpecs)
+          );
           if (existing) {
             return {
-              cart: state.cart.map((item) => (item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item))
+              cart: state.cart.map((item) =>
+                item.id === product.id &&
+                JSON.stringify(item.selectedSpecs) === JSON.stringify(selectedSpecs)
+                  ? { ...item, quantity: item.quantity + 1 }
+                  : item
+              ),
             };
           }
-          return { cart: [...state.cart, { ...product, quantity: 1 }] };
+          return { cart: [...state.cart, { ...product, quantity: 1, selectedSpecs, finalPrice: price }] };
         }),
       addToWishlist: (title, note) =>
         set((state) => ({
@@ -109,6 +141,20 @@ export const useShopStore = create<ShopState>()(
             wishlist: (state.stats.wishlist ?? []).filter((item) => item.id !== id)
           }
         })),
+      toggleFavorite: (product) =>
+        set((state) => {
+          const exists = (state.stats.favorites ?? []).some((f) => f.productId === product.id);
+          const favorites = exists
+            ? (state.stats.favorites ?? []).filter((f) => f.productId !== product.id)
+            : [{ productId: product.id, product, createdAt: new Date().toISOString() }, ...(state.stats.favorites ?? [])];
+          return {
+            stats: { ...state.stats, favorites: favorites.slice(0, 200) }
+          };
+        }),
+      isFavorite: (productId) => {
+        const state = get();
+        return (state.stats.favorites ?? []).some((f) => f.productId === productId);
+      },
       addMessage: (content) =>
         set((state) => ({
           stats: {
@@ -158,6 +204,40 @@ export const useShopStore = create<ShopState>()(
             }
           };
         }),
+      applyAfterSale: (id) =>
+        set((state) => ({
+          stats: {
+            ...state.stats,
+            purchases: (state.stats.purchases ?? []).map((purchase) =>
+              purchase.id === id
+                ? {
+                    ...purchase,
+                    afterSaleStatus: "applied" as const,
+                    afterSaleAppliedAt: new Date().toISOString()
+                  }
+                : purchase
+            )
+          }
+        })),
+      completeAfterSale: (id) =>
+        set((state) => ({
+          stats: {
+            ...state.stats,
+            purchases: (state.stats.purchases ?? []).map((purchase) =>
+              purchase.id === id
+                ? { ...purchase, afterSaleStatus: "completed" as const }
+                : purchase
+            )
+          }
+        })),
+      setAvatar: (avatar) =>
+        set((state) => ({
+          stats: { ...state.stats, avatar }
+        })),
+      setNickname: (nickname) =>
+        set((state) => ({
+          stats: { ...state.stats, nickname: nickname.slice(0, 10) }
+        })),
       refreshStreak: () => {
         const { stats } = get();
         const today = todayKey();
