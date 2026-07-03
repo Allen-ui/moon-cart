@@ -13,6 +13,19 @@ export type PurchaseRecord = {
   items: CartItem[];
 };
 
+export type WishItem = {
+  id: string;
+  title: string;
+  note?: string;
+  createdAt: string;
+};
+
+export type MessageItem = {
+  id: string;
+  content: string;
+  createdAt: string;
+};
+
 type Stats = {
   virtualSpend: number;
   happyCount: number;
@@ -20,6 +33,8 @@ type Stats = {
   viewedProducts: number;
   badges: string[];
   purchases: PurchaseRecord[];
+  wishlist: WishItem[];
+  messages: MessageItem[];
   lastVisitDate?: string;
 };
 
@@ -27,6 +42,9 @@ type ShopState = {
   cart: CartItem[];
   stats: Stats;
   addToCart: (product: Product) => void;
+  addToWishlist: (title: string, note?: string) => void;
+  removeFromWishlist: (id: string) => void;
+  addMessage: (content: string) => void;
   removeFromCart: (id: number) => void;
   changeQuantity: (id: number, delta: number) => void;
   clearCart: () => void;
@@ -49,7 +67,9 @@ const initialStats: Stats = {
   streak: 0,
   viewedProducts: 0,
   badges: [],
-  purchases: []
+  purchases: [],
+  wishlist: [],
+  messages: []
 };
 
 export const useShopStore = create<ShopState>()(
@@ -67,6 +87,42 @@ export const useShopStore = create<ShopState>()(
           }
           return { cart: [...state.cart, { ...product, quantity: 1 }] };
         }),
+      addToWishlist: (title, note) =>
+        set((state) => ({
+          stats: {
+            ...state.stats,
+            wishlist: [
+              {
+                id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+                title,
+                note,
+                createdAt: new Date().toISOString()
+              },
+              ...(state.stats.wishlist ?? [])
+            ].slice(0, 50)
+          }
+        })),
+      removeFromWishlist: (id) =>
+        set((state) => ({
+          stats: {
+            ...state.stats,
+            wishlist: (state.stats.wishlist ?? []).filter((item) => item.id !== id)
+          }
+        })),
+      addMessage: (content) =>
+        set((state) => ({
+          stats: {
+            ...state.stats,
+            messages: [
+              {
+                id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+                content,
+                createdAt: new Date().toISOString()
+              },
+              ...(state.stats.messages ?? [])
+            ].slice(0, 50)
+          }
+        })),
       removeFromCart: (id) => set((state) => ({ cart: state.cart.filter((item) => item.id !== id) })),
       changeQuantity: (id, delta) =>
         set((state) => ({
@@ -107,7 +163,18 @@ export const useShopStore = create<ShopState>()(
         const today = todayKey();
         if (stats.lastVisitDate === today) return;
         const streak = stats.lastVisitDate === yesterdayKey() ? stats.streak + 1 : 1;
-        set({ stats: { ...initialStats, ...stats, purchases: stats.purchases ?? [], badges: stats.badges ?? [], streak, lastVisitDate: today } });
+        set({
+          stats: {
+            ...initialStats,
+            ...stats,
+            purchases: stats.purchases ?? [],
+            wishlist: stats.wishlist ?? [],
+            messages: stats.messages ?? [],
+            badges: stats.badges ?? [],
+            streak,
+            lastVisitDate: today
+          }
+        });
       }
     }),
     {
