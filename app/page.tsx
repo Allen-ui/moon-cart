@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, Bolt, Check, Home, Minus, Plus, ShoppingBag, Trash2, UserRound } from "lucide-react";
 import { categories, pickProducts, products, type Product } from "@/data/products";
-import { useShopStore } from "@/store/useShopStore";
+import { type CartItem, useShopStore } from "@/store/useShopStore";
 
 type View = "home" | "category" | "list" | "detail" | "cart" | "order" | "delivery" | "done" | "mine";
 
@@ -39,6 +39,7 @@ export default function MoonCartApp() {
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>();
   const [selectedProduct, setSelectedProduct] = useState<Product>(products[0]);
   const [lastOrderAmount, setLastOrderAmount] = useState(428);
+  const [lastOrderItems, setLastOrderItems] = useState<CartItem[]>([]);
   const [deliveryIndex, setDeliveryIndex] = useState(0);
   const { cart, stats, addToCart, removeFromCart, changeQuantity, markProductViewed, completeOrder, refreshStreak } = useShopStore();
 
@@ -63,8 +64,9 @@ export default function MoonCartApp() {
     setView("detail");
   };
 
-  const startOrder = (amount = finalTotal || selectedProduct.price) => {
+  const startOrder = (amount = finalTotal || selectedProduct.price, items?: CartItem[]) => {
     setLastOrderAmount(amount);
+    setLastOrderItems(items?.length ? items.map((item) => ({ ...item })) : [{ ...selectedProduct, quantity: 1 }]);
     setView("order");
     window.setTimeout(() => setView("delivery"), 2000);
   };
@@ -77,7 +79,7 @@ export default function MoonCartApp() {
         if (current >= deliverySteps.length - 1) {
           window.clearInterval(timer);
           window.setTimeout(() => {
-            completeOrder(lastOrderAmount);
+            completeOrder(lastOrderAmount, lastOrderItems);
             setView("done");
           }, 700);
           return current;
@@ -86,7 +88,7 @@ export default function MoonCartApp() {
       });
     }, 2100);
     return () => window.clearInterval(timer);
-  }, [completeOrder, lastOrderAmount, view]);
+  }, [completeOrder, lastOrderAmount, lastOrderItems, view]);
 
   const accelerate = () => {
     setDeliveryIndex((index) => Math.min(deliverySteps.length - 1, index + 2));
@@ -191,7 +193,7 @@ export default function MoonCartApp() {
               <button className="flex-1 rounded-full bg-white px-5 py-4 font-semibold shadow-soft" onClick={() => addToCart(selectedProduct)}>
                 加入购物车
               </button>
-              <button className="flex-1 rounded-full bg-ink px-5 py-4 font-semibold text-white shadow-soft" onClick={() => startOrder(selectedProduct.price)}>
+              <button className="flex-1 rounded-full bg-ink px-5 py-4 font-semibold text-white shadow-soft" onClick={() => startOrder(selectedProduct.price, [{ ...selectedProduct, quantity: 1 }])}>
                 立即下单
               </button>
             </div>
@@ -236,7 +238,7 @@ export default function MoonCartApp() {
                 </section>
                 <div className="mt-5 grid grid-cols-2 gap-3">
                   <button className="rounded-full bg-white py-4 font-semibold shadow-soft" onClick={() => openCategory(undefined)}>继续逛逛</button>
-                  <button className="rounded-full bg-ink py-4 font-semibold text-white shadow-soft" onClick={() => startOrder(finalTotal)}>立即下单</button>
+                  <button className="rounded-full bg-ink py-4 font-semibold text-white shadow-soft" onClick={() => startOrder(finalTotal, cart)}>立即下单</button>
                 </div>
               </>
             )}
@@ -307,6 +309,10 @@ export default function MoonCartApp() {
                 <InfoRow label="实际支付" value="¥0" tone="mint" />
                 <InfoRow label="今日快乐值" value="+100" tone="coral" />
               </section>
+              <section className="mt-4 w-full rounded-[28px] bg-white p-5 text-left shadow-soft">
+                <div className="mb-3 font-semibold">刚刚买过</div>
+                <BoughtItems items={lastOrderItems} />
+              </section>
               <div className="mt-6 grid w-full grid-cols-2 gap-3">
                 <button className="rounded-full bg-white py-4 font-semibold shadow-soft" onClick={() => openCategory(undefined)}>继续逛逛</button>
                 <button className="rounded-full bg-ink py-4 font-semibold text-white shadow-soft" onClick={() => setView("home")}>返回首页</button>
@@ -338,6 +344,27 @@ export default function MoonCartApp() {
                   </span>
                 ))}
               </div>
+            </section>
+            <section className="mt-4 rounded-[28px] bg-white p-5 shadow-soft">
+              <div className="mb-3 flex items-center justify-between">
+                <span className="font-semibold">买过什么</span>
+                <span className="text-xs text-quiet">最近 {stats.purchases?.length ?? 0} 次</span>
+              </div>
+              {stats.purchases?.length ? (
+                <div className="space-y-3">
+                  {stats.purchases.slice(0, 8).map((record) => (
+                    <div key={record.id} className="rounded-[22px] bg-black/[0.03] p-3">
+                      <div className="mb-3 flex items-center justify-between text-sm">
+                        <span className="font-semibold">{formatPurchaseDate(record.createdAt)}</span>
+                        <span className="text-coral">{money(record.amount)}</span>
+                      </div>
+                      <BoughtItems items={record.items} compact />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm leading-6 text-quiet">还没有买过的记录。完成一次快乐送达后，这里会自动留下本次清单。</p>
+              )}
             </section>
           </Screen>
         )}
@@ -416,6 +443,26 @@ function InfoRow({ label, value, tone }: { label: string; value: string; tone?: 
   );
 }
 
+function BoughtItems({ items, compact = false }: { items: CartItem[]; compact?: boolean }) {
+  if (!items.length) {
+    return <p className="text-sm text-quiet">这次是直接奖励自己，没有留下具体清单。</p>;
+  }
+
+  return (
+    <div className={compact ? "flex flex-wrap gap-2" : "space-y-2"}>
+      {items.map((item) => (
+        <div key={`${item.id}-${item.title}`} className={compact ? "rounded-full bg-white px-3 py-2 text-xs font-semibold text-ink" : "flex items-center justify-between rounded-2xl bg-black/[0.03] px-3 py-2"}>
+          <span className="min-w-0">
+            <span className="mr-2">{item.emoji}</span>
+            <span>{item.title}</span>
+          </span>
+          {!compact && <span className="shrink-0 text-sm text-quiet">x {item.quantity}</span>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function EmptyCart({ onShop }: { onShop: () => void }) {
   return (
     <Centered>
@@ -425,6 +472,12 @@ function EmptyCart({ onShop }: { onShop: () => void }) {
       <button className="mt-8 rounded-full bg-ink px-8 py-4 font-semibold text-white shadow-soft" onClick={onShop}>继续逛逛</button>
     </Centered>
   );
+}
+
+function formatPurchaseDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "刚刚";
+  return `${date.getMonth() + 1}月${date.getDate()}日 ${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }
 
 function Centered({ children }: { children: React.ReactNode }) {

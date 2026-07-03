@@ -6,12 +6,20 @@ import type { Product } from "@/data/products";
 
 export type CartItem = Product & { quantity: number };
 
+export type PurchaseRecord = {
+  id: string;
+  createdAt: string;
+  amount: number;
+  items: CartItem[];
+};
+
 type Stats = {
   virtualSpend: number;
   happyCount: number;
   streak: number;
   viewedProducts: number;
   badges: string[];
+  purchases: PurchaseRecord[];
   lastVisitDate?: string;
 };
 
@@ -23,7 +31,7 @@ type ShopState = {
   changeQuantity: (id: number, delta: number) => void;
   clearCart: () => void;
   markProductViewed: () => void;
-  completeOrder: (amount: number) => void;
+  completeOrder: (amount: number, items?: CartItem[]) => void;
   refreshStreak: () => void;
 };
 
@@ -40,7 +48,8 @@ const initialStats: Stats = {
   happyCount: 0,
   streak: 0,
   viewedProducts: 0,
-  badges: []
+  badges: [],
+  purchases: []
 };
 
 export const useShopStore = create<ShopState>()(
@@ -67,10 +76,18 @@ export const useShopStore = create<ShopState>()(
         })),
       clearCart: () => set({ cart: [] }),
       markProductViewed: () => set((state) => ({ stats: { ...state.stats, viewedProducts: state.stats.viewedProducts + 1 } })),
-      completeOrder: (amount) =>
+      completeOrder: (amount, items) =>
         set((state) => {
           const happyCount = state.stats.happyCount + 1;
           const badges = new Set(state.stats.badges);
+          const orderItems = items?.length ? items : state.cart;
+          const purchase: PurchaseRecord = {
+            id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+            createdAt: new Date().toISOString(),
+            amount,
+            items: orderItems.map((item) => ({ ...item }))
+          };
+          const purchases = [purchase, ...(state.stats.purchases ?? [])].slice(0, 30);
           if (happyCount >= 1) badges.add("首次快乐");
           if (happyCount >= 3) badges.add("深夜常客");
           if (state.stats.virtualSpend + amount >= 1000) badges.add("虚拟大买家");
@@ -80,7 +97,8 @@ export const useShopStore = create<ShopState>()(
               ...state.stats,
               virtualSpend: state.stats.virtualSpend + amount,
               happyCount,
-              badges: Array.from(badges)
+              badges: Array.from(badges),
+              purchases
             }
           };
         }),
@@ -89,7 +107,7 @@ export const useShopStore = create<ShopState>()(
         const today = todayKey();
         if (stats.lastVisitDate === today) return;
         const streak = stats.lastVisitDate === yesterdayKey() ? stats.streak + 1 : 1;
-        set({ stats: { ...stats, streak, lastVisitDate: today } });
+        set({ stats: { ...initialStats, ...stats, purchases: stats.purchases ?? [], badges: stats.badges ?? [], streak, lastVisitDate: today } });
       }
     }),
     {
