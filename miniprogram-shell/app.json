@@ -1,0 +1,13 @@
+{
+  "pages": [
+    "pages/index/index"
+  ],
+  "window": {
+    "navigationBarTitleText": "就爱买",
+    "navigationBarBackgroundColor": "#F8F8F6",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#F8F8F6"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}
