@@ -48,6 +48,7 @@ export default function MoonCartApp() {
 
   const visibleProducts = useMemo(() => pickProducts(selectedCategory), [selectedCategory]);
   const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   const discount = cartTotal > 300 ? 60 : cartTotal > 160 ? 30 : cartTotal > 80 ? 12 : 0;
   const finalTotal = Math.max(0, cartTotal - discount);
 
@@ -149,7 +150,7 @@ export default function MoonCartApp() {
 
         {view === "list" && (
           <Screen key="list">
-            <Header title={selectedCategory ?? "随便逛逛"} onBack={() => (selectedCategory ? setView("category") : setView("home"))} right={<CartButton count={cart.length} onClick={() => setView("cart")} />} />
+            <Header title={selectedCategory ?? "随便逛逛"} onBack={() => (selectedCategory ? setView("category") : setView("home"))} right={<CartButton count={cartCount} onClick={() => setView("cart")} />} />
             <div className="hide-scrollbar -mx-4 mb-4 flex gap-2 overflow-x-auto px-4">
               <button onClick={() => setSelectedCategory(undefined)} className={`whitespace-nowrap rounded-full px-4 py-2 text-sm ${!selectedCategory ? "bg-ink text-white" : "bg-white text-ink"}`}>
                 全部
@@ -170,7 +171,7 @@ export default function MoonCartApp() {
 
         {view === "detail" && (
           <Screen key="detail">
-            <Header title="商品详情" onBack={() => setView("list")} right={<CartButton count={cart.length} onClick={() => setView("cart")} />} />
+            <Header title="商品详情" onBack={() => setView("list")} right={<CartButton count={cartCount} onClick={() => setView("cart")} />} />
             <ProductVisual product={selectedProduct} large />
             <section className="mt-5 rounded-[28px] bg-white p-5 shadow-soft">
               <div className="flex items-start justify-between gap-4">
@@ -341,7 +342,7 @@ export default function MoonCartApp() {
           </Screen>
         )}
       </AnimatePresence>
-      {["home", "list", "cart", "mine"].includes(view) && <TabBar view={view} setView={setView} />}
+      {["home", "list", "cart", "mine"].includes(view) && <TabBar view={view} setView={setView} cartCount={cartCount} />}
     </main>
   );
 }
@@ -447,7 +448,7 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
   );
 }
 
-function TabBar({ view, setView }: { view: View; setView: (view: View) => void }) {
+function TabBar({ view, setView, cartCount }: { view: View; setView: (view: View) => void; cartCount: number }) {
   const items = [
     { view: "home" as View, label: "首页", icon: Home },
     { view: "cart" as View, label: "购物车", icon: ShoppingBag },
@@ -460,8 +461,15 @@ function TabBar({ view, setView }: { view: View; setView: (view: View) => void }
           const Icon = item.icon;
           const active = view === item.view;
           return (
-            <button key={item.view} onClick={() => setView(item.view)} className={`flex min-w-20 flex-col items-center rounded-full px-4 py-2 text-xs ${active ? "bg-ink text-white" : "text-quiet"}`}>
-              <Icon size={18} />
+            <button key={item.view} onClick={() => setView(item.view)} className={`relative flex min-w-20 flex-col items-center rounded-full px-4 py-2 text-xs ${active ? "bg-ink text-white" : "text-quiet"}`}>
+              <span className="relative">
+                <Icon size={18} />
+                {item.view === "cart" && cartCount > 0 && (
+                  <span className="absolute -right-3 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-coral px-1 text-[10px] font-semibold leading-none text-white">
+                    {cartCount}
+                  </span>
+                )}
+              </span>
               <span className="mt-1">{item.label}</span>
             </button>
           );
