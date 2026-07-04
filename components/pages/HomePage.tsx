@@ -577,11 +577,11 @@ export function HomePage({
               <ProductCard
                 key={product.id}
                 product={product}
-                onClick={() => onOpenProduct(product)}
-                onToggleFavorite={() => toggleFavorite(product)}
+                onClick={onOpenProduct}
+                onToggleFavorite={toggleFavorite}
                 isFavorite={isFavorite(product.id)}
-                onAddToCart={() => addToCart(product)}
-                onQuickAdd={(p) => onQuickAdd(p)}
+                onAddToCart={addToCart}
+                onQuickAdd={onQuickAdd}
               />
             ))}
         </div>

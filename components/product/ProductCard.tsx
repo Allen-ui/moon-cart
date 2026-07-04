@@ -1,11 +1,22 @@
 "use client";
 
+import { memo } from "react";
 import { Heart, ShoppingCart } from "lucide-react";
 import type { Product } from "@/data/products";
 import { money } from "@/utils/format";
 import { ProductVisual } from "./ProductVisual";
 
-export function ProductCard({
+type ProductCardProps = {
+  product: Product;
+  onClick: (product: Product) => void;
+  showFavorite?: boolean;
+  onToggleFavorite?: (product: Product) => void;
+  isFavorite?: boolean;
+  onAddToCart?: (product: Product) => void;
+  onQuickAdd?: (product: Product) => void;
+};
+
+function ProductCardComponent({
   product,
   onClick,
   showFavorite = true,
@@ -13,20 +24,12 @@ export function ProductCard({
   isFavorite,
   onAddToCart,
   onQuickAdd,
-}: {
-  product: Product;
-  onClick: () => void;
-  showFavorite?: boolean;
-  onToggleFavorite?: () => void;
-  isFavorite?: boolean;
-  onAddToCart?: () => void;
-  onQuickAdd?: (product: Product) => void;
-}) {
+}: ProductCardProps) {
   return (
     <div className="masonry-item relative">
       <button
         className="block w-full rounded-[24px] bg-white p-2 text-left shadow-soft transition active:scale-[0.98]"
-        onClick={onClick}
+        onClick={() => onClick(product)}
       >
         <div className="relative rounded-xl bg-black/[0.03] overflow-hidden">
           <ProductVisual product={product} />
@@ -68,7 +71,7 @@ export function ProductCard({
           className="absolute top-4 right-4 z-10 h-8 w-8 rounded-full bg-white flex items-center justify-center shadow-md active:scale-90 transition-transform"
           onClick={(e) => {
             e.stopPropagation();
-            onToggleFavorite();
+            onToggleFavorite(product);
           }}
         >
           <Heart
@@ -86,7 +89,7 @@ export function ProductCard({
             if (product.specs && product.specs.length > 0 && onQuickAdd) {
               onQuickAdd(product);
             } else {
-              onAddToCart();
+              onAddToCart(product);
             }
           }}
         >
@@ -96,3 +99,7 @@ export function ProductCard({
     </div>
   );
 }
+
+// React.memo 默认浅比较：当 product 引用稳定、回调通过 useCallback 稳定下来时，
+// 父组件因购物车/计时器等无关 state 重渲染时，列表项不会重复渲染
+export const ProductCard = memo(ProductCardComponent);

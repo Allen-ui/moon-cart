@@ -112,6 +112,9 @@ button {
 .masonry-item {
   break-inside: avoid;
   margin-bottom: 12px;
+  /* 跳过屏幕外卡片的渲染工作，显著提升长列表滚动性能 */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 300px;
 }
 
 @media (min-width: 768px) {
