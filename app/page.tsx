@@ -147,7 +147,13 @@ const subCategoriesByChannel: Record<
   ],
 };
 import { type CartItem, type PurchaseRecord, useShopStore, BADGES, BADGE_CATEGORIES, type BadgeCategory } from "@/store/useShopStore";
-import QRCode from "qrcode";
+// qrcode 仅在生成分享卡时用到（每次点击才加载），从首屏 bundle 中剔除以减少 ~80KB
+type QRCodeModule = typeof import("qrcode");
+let qrCodeModulePromise: Promise<QRCodeModule> | null = null;
+const getQRCode = () => {
+  if (!qrCodeModulePromise) qrCodeModulePromise = import("qrcode");
+  return qrCodeModulePromise;
+};
 
 const categoryShortcuts = [
   { label: "想吃点好的", icon: "🍔", category: "外卖" },
@@ -1453,6 +1459,7 @@ export default function MoonCartApp() {
     const qrY = cardY + cardH + 200;
 
     try {
+      const QRCode = await getQRCode();
       const qrDataUrl = await QRCode.toDataURL("https://m.trestrong.com/", {
         width: qrSize,
         margin: 1,
@@ -1603,6 +1610,7 @@ export default function MoonCartApp() {
     const qrX = (W - qrSize) / 2;
     const qrY = 1220;
     try {
+      const QRCode = await getQRCode();
       const qrDataUrl = await QRCode.toDataURL("https://m.trestrong.com/", {
         width: qrSize,
         margin: 1,
