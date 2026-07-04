@@ -368,6 +368,8 @@ export default function MoonCartApp() {
       setFlightSearching(false);
     }, 700);
   };
+  // 从 localStorage 读取主题偏好，与 layout.tsx 中的内联初始化脚本保持一致
+  // 服务端渲染时默认 false（浅色），客户端 hydration 后同步真实值
   const [darkMode, setDarkMode] = useState(false);
   const [orderFilter, setOrderFilter] = useState("all");
   const [orderSearchQuery, setOrderSearchQuery] = useState("");
@@ -453,13 +455,13 @@ export default function MoonCartApp() {
   }, [stats.purchases, updateOrderStatus]);
 
   useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add("dark");
-      document.documentElement.classList.remove("light");
-    } else {
-      document.documentElement.classList.remove("dark");
-      document.documentElement.classList.add("light");
-    }
+    const theme = darkMode ? "dark" : "light";
+    document.documentElement.classList.remove("light", "dark");
+    document.documentElement.classList.add(theme);
+    document.documentElement.style.colorScheme = theme;
+    try {
+      localStorage.setItem("moon-cart-theme", theme);
+    } catch {}
   }, [darkMode]);
 
   useEffect(() => {
