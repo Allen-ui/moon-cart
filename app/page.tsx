@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -21,6 +21,76 @@ import {
   products,
   type Product,
 } from "@/data/products";
+
+const channelCategories: Record<"index" | "takeout" | "travel", string[]> = {
+  index: categories.filter((c) => c !== "盲盒"),
+  takeout: ["外卖", "水果", "零食", "饮料"],
+  travel: ["旅行"],
+};
+
+// 首页电商分类入口（25个，横向滚动，默认显示5个）
+const HOME_CATEGORIES: Array<{ icon: string; label: string; category?: string; keyword?: string }> = [
+  { icon: "👜", label: "箱包", category: "鞋服", keyword: "包|箱|背包|钱包" },
+  { icon: "💄", label: "美妆护肤", category: "美妆" },
+  { icon: "👗", label: "女装", category: "鞋服", keyword: "裙|女装|上衣|毛衣|卫衣" },
+  { icon: "💍", label: "黄金珠宝", category: "鞋服", keyword: "黄金|珠宝|项链|戒指|钻" },
+  { icon: "💻", label: "数码", category: "数码" },
+  { icon: "📺", label: "家电", category: "家电" },
+  { icon: "📱", label: "手机", category: "数码", keyword: "手机|iPhone|华为|小米|OPPO|vivo" },
+  { icon: "🧴", label: "个护清洁", category: "美妆", keyword: "洗面|洗发|沐浴|牙膏|纸巾|清洁" },
+  { icon: "🍳", label: "厨具", category: "生活用品", keyword: "锅|碗|刀|铲|烤|烘焙|餐具" },
+  { icon: "🛋️", label: "家居", category: "生活用品", keyword: "床|枕|被|垫|毯|收纳|家具|灯" },
+  { icon: "💊", label: "医疗保健", category: "生活用品", keyword: "保健|按摩|理疗|体温|血压" },
+  { icon: "🍻", label: "食品酒饮", category: "零食" },
+  { icon: "🚗", label: "汽摩生活", category: "生活用品", keyword: "车|汽|摩托|车载" },
+  { icon: "💎", label: "奢侈品", category: "鞋服", keyword: "LV|古驰|香奈儿|爱马仕|Gucci|奢侈品" },
+  { icon: "🐾", label: "宠物鲜花", category: "生活用品", keyword: "宠物|猫|狗|鲜花|花" },
+  { icon: "✏️", label: "文具", category: "数码", keyword: "笔|本|文具|书|阅读" },
+  { icon: "⚽", label: "运动户外", category: "鞋服", keyword: "运动|健身|跑步|瑜伽|户外|登山" },
+  { icon: "🔧", label: "工业品", category: "生活用品", keyword: "工具|五金|螺丝|工业" },
+  { icon: "🎸", label: "玩具乐器", category: "数码", keyword: "玩具|乐高|吉他|钢琴|乐器|模型" },
+  { icon: "🖥️", label: "电脑办公", category: "数码", keyword: "电脑|笔记本|键盘|鼠标|显示器|办公" },
+  { icon: "👶", label: "母婴童装", category: "鞋服", keyword: "婴儿|童装|奶粉|纸尿裤|宝宝" },
+  { icon: "👔", label: "男装", category: "鞋服", keyword: "男装|衬衫|夹克|西装|男" },
+  { icon: "🌱", label: "农资园艺", category: "水果", keyword: "种子|花盆|园艺|农" },
+  { icon: "🥬", label: "生鲜", category: "水果" },
+  { icon: "👟", label: "鞋靴", category: "鞋服", keyword: "鞋|靴|拖鞋|运动鞋" },
+];
+
+const HOME_CATEGORY_ROW_HEIGHT = 76;
+const HOME_CATEGORY_ROW_GAP = 12;
+const HOME_CATEGORY_COLLAPSED_HEIGHT = HOME_CATEGORY_ROW_HEIGHT;
+const HOME_CATEGORY_EXPANDED_HEIGHT =
+  HOME_CATEGORY_ROW_HEIGHT * 5 + HOME_CATEGORY_ROW_GAP * 4;
+
+// 子分类（与首页快捷入口完全一致，确保 tab 栏显示与点击入口一致）
+const subCategoriesByChannel: Record<
+  "index" | "takeout" | "travel",
+  Array<{ label: string; category?: string; keyword?: string }>
+> = {
+  index: HOME_CATEGORIES.map((c) => ({ label: c.label, category: c.category, keyword: c.keyword })),
+  takeout: [
+    { label: "快餐便当", category: "外卖", keyword: "汉堡|炸鸡|拌饭|套餐|饭|卷|鸡|堡" },
+    { label: "奶茶饮品", category: "外卖", keyword: "奶茶|茶|咖啡|奶|饮|果汁|柠" },
+    { label: "烧烤炸串", category: "外卖", keyword: "烤|炸|串|螺蛳|小龙虾|虾" },
+    { label: "蛋糕甜点", category: "外卖", keyword: "蛋糕|甜|布丁|披萨|芝士" },
+    { label: "面食粥品", category: "外卖", keyword: "面|粥|粉|意面|螺" },
+    { label: "日料寿司", category: "外卖", keyword: "寿司|日料|刺身|日式" },
+    { label: "披萨意面", category: "外卖", keyword: "披萨|意面|芝士|西餐" },
+    { label: "中式正餐", category: "外卖", keyword: "火锅|香锅|冒菜|锅|中餐|炒|炖" },
+    { label: "西式快餐", category: "外卖", keyword: "薯|汉堡|鸡|堡|快餐" },
+  ],
+  travel: [
+    { label: "酒店", category: "旅行", keyword: "酒店|住宿|房|民宿|客栈" },
+    { label: "门票", category: "旅行", keyword: "门票|票|园|故宫|迪士尼|影城|长隆|野生动物|冰雪" },
+    { label: "跟团游", category: "旅行", keyword: "跟团|一日游|游|朝圣|深度" },
+    { label: "租车", category: "旅行", keyword: "租车|自驾|车" },
+    { label: "度假", category: "旅行", keyword: "度假|海岛|海滩|海景|三亚|马尔代夫|亚特兰蒂斯|巴厘" },
+    { label: "周边游", category: "旅行", keyword: "周边|西湖|长城|慕田峪|古镇|苏州|南京|园林|中山" },
+    { label: "游乐园", category: "旅行", keyword: "迪士尼|影城|游乐园|乐园|长隆|野生动物|欢乐谷" },
+    { label: "露营", category: "旅行", keyword: "露营|帐篷|营地|草原" },
+  ],
+};
 import { type CartItem, type PurchaseRecord, useShopStore } from "@/store/useShopStore";
 import QRCode from "qrcode";
 
@@ -36,7 +106,9 @@ type View =
   | "wish"
   | "orders"
   | "favorites"
-  | "admin";
+  | "admin"
+  | "flight"
+  | "flightBooking";
 
 const categoryShortcuts = [
   { label: "想吃点好的", icon: "🍔", category: "外卖" },
@@ -77,20 +149,58 @@ const chineseZodiac = [
   { name: "猪", emoji: "🐷" },
 ];
 
-const deliverySteps = [
-  "订单生成",
-  "商家接单",
-  "骑手接单",
-  "骑手到店",
-  "商品制作中",
-  "已取货",
-  "配送中",
-  "距离 2.3km",
-  "距离 1.6km",
-  "距离 800m",
-  "距离 200m",
-  "已送达",
-];
+const deliveryStepsByChannel: Record<
+  "index" | "takeout" | "travel",
+  string[]
+> = {
+  index: [
+    "订单生成",
+    "商家接单",
+    "商品拣货中",
+    "商品打包完成",
+    "快递揽收",
+    "运输到分拣中心",
+    "运往配送站",
+    "派送员接单",
+    "配送中",
+    "距离 5.2km",
+    "距离 2.3km",
+    "距离 800m",
+    "已送达",
+  ],
+  takeout: [
+    "订单生成",
+    "商家接单",
+    "骑手接单",
+    "骑手到店",
+    "商品制作中",
+    "已取货",
+    "配送中",
+    "距离 2.3km",
+    "距离 1.6km",
+    "距离 800m",
+    "距离 200m",
+    "已送达",
+  ],
+  travel: [
+    "订单生成",
+    "商家确认预订",
+    "预订成功",
+    "距离出发还有7天",
+    "距离出发还有5天",
+    "距离出发还有3天",
+    "距离出发还有2天",
+    "距离出发还有1天",
+    "今天出发",
+    "出行中",
+    "行程已完成",
+  ],
+};
+
+const getDeliverySteps = (channel?: string) =>
+  deliveryStepsByChannel[
+    (channel as "index" | "takeout" | "travel") ?? "index"
+  ];
 
 const money = (value: number) => `¥${Math.round(value)}`;
 
@@ -176,16 +286,411 @@ const fuzzySearch = (products: Product[], query: string): Product[] => {
   });
 };
 
+const getChannelFromItems = (items: CartItem[]): "index" | "takeout" | "travel" => {
+  const categories = items.map((i) => i.category);
+  if (categories.length > 0 && categories.every((c) => c === "旅行"))
+    return "travel";
+  if (categories.length > 0 && categories.every((c) => c === "外卖"))
+    return "takeout";
+  return "index";
+};
+
 type DeliveryOrder = {
   id: string;
   amount: number;
   items: CartItem[];
   stepIndex: number;
   createdAt: string;
+  channel: "index" | "takeout" | "travel";
 };
+
+type FlightCity = { code: string; name: string; pinyin: string; region?: string };
+const FLIGHT_CITY_DATA: Record<"domestic" | "international", FlightCity[]> = {
+  domestic: [
+    // 北京
+    { code: "BJS", name: "北京", pinyin: "beijing", region: "北京" },
+    // 天津
+    { code: "TSN", name: "天津", pinyin: "tianjin", region: "天津" },
+    // 河北
+    { code: "SJW", name: "石家庄", pinyin: "shijiazhuang", region: "河北" },
+    { code: "HDG", name: "邯郸", pinyin: "handan", region: "河北" },
+    { code: "BPE", name: "秦皇岛", pinyin: "qinhuangdao", region: "河北" },
+    // 山西
+    { code: "TYN", name: "太原", pinyin: "taiyuan", region: "山西" },
+    { code: "YCU", name: "运城", pinyin: "yuncheng", region: "山西" },
+    { code: "DAT", name: "大同", pinyin: "datong", region: "山西" },
+    { code: "CIH", name: "长治", pinyin: "changzhi", region: "山西" },
+    // 内蒙古
+    { code: "HET", name: "呼和浩特", pinyin: "huhehaote", region: "内蒙古" },
+    { code: "DSN", name: "鄂尔多斯", pinyin: "eerduosi", region: "内蒙古" },
+    { code: "HLD", name: "呼伦贝尔", pinyin: "hulunbeier", region: "内蒙古" },
+    { code: "BAV", name: "包头", pinyin: "baotou", region: "内蒙古" },
+    { code: "CIF", name: "赤峰", pinyin: "chifeng", region: "内蒙古" },
+    { code: "TGO", name: "通辽", pinyin: "tongliao", region: "内蒙古" },
+    // 辽宁
+    { code: "SHE", name: "沈阳", pinyin: "shenyang", region: "辽宁" },
+    { code: "DLC", name: "大连", pinyin: "dalian", region: "辽宁" },
+    { code: "JNZ", name: "锦州", pinyin: "jinzhou", region: "辽宁" },
+    { code: "YIK", name: "营口", pinyin: "yingkou", region: "辽宁" },
+    { code: "AOG", name: "鞍山", pinyin: "anshan", region: "辽宁" },
+    // 吉林
+    { code: "CGQ", name: "长春", pinyin: "changchun", region: "吉林" },
+    { code: "YNJ", name: "延吉", pinyin: "yanji", region: "吉林" },
+    { code: "NBS", name: "白山", pinyin: "baishan", region: "吉林" },
+    { code: "TNH", name: "通化", pinyin: "tonghua", region: "吉林" },
+    // 黑龙江
+    { code: "HRB", name: "哈尔滨", pinyin: "haerbin", region: "黑龙江" },
+    { code: "JMU", name: "佳木斯", pinyin: "jiamusi", region: "黑龙江" },
+    { code: "MDG", name: "牡丹江", pinyin: "mudanjiang", region: "黑龙江" },
+    { code: "OHE", name: "漠河", pinyin: "mohe", region: "黑龙江" },
+    { code: "NDG", name: "齐齐哈尔", pinyin: "qiqihaer", region: "黑龙江" },
+    // 上海
+    { code: "SHA", name: "上海", pinyin: "shanghai", region: "上海" },
+    // 江苏
+    { code: "NKG", name: "南京", pinyin: "nanjing", region: "江苏" },
+    { code: "XUZ", name: "徐州", pinyin: "xuzhou", region: "江苏" },
+    { code: "NTG", name: "南通", pinyin: "nantong", region: "江苏" },
+    { code: "WUX", name: "无锡", pinyin: "wuxi", region: "江苏" },
+    { code: "CZX", name: "常州", pinyin: "changzhou", region: "江苏" },
+    { code: "YNZ", name: "盐城", pinyin: "yancheng", region: "江苏" },
+    { code: "LYG", name: "连云港", pinyin: "lianyungang", region: "江苏" },
+    // 浙江
+    { code: "HGH", name: "杭州", pinyin: "hangzhou", region: "浙江" },
+    { code: "NGB", name: "宁波", pinyin: "ningbo", region: "浙江" },
+    { code: "WNZ", name: "温州", pinyin: "wenzhou", region: "浙江" },
+    { code: "YIW", name: "义乌", pinyin: "yiwu", region: "浙江" },
+    { code: "HSN", name: "舟山", pinyin: "zhoushan", region: "浙江" },
+    { code: "HYN", name: "台州", pinyin: "taizhou", region: "浙江" },
+    // 安徽
+    { code: "HFE", name: "合肥", pinyin: "hefei", region: "安徽" },
+    { code: "JUH", name: "池州", pinyin: "chizhou", region: "安徽" },
+    { code: "WHA", name: "芜湖", pinyin: "wuhu", region: "安徽" },
+    { code: "AQG", name: "安庆", pinyin: "anqing", region: "安徽" },
+    { code: "TXN", name: "黄山", pinyin: "huangshan", region: "安徽" },
+    // 福建
+    { code: "FOC", name: "福州", pinyin: "fuzhou", region: "福建" },
+    { code: "XMN", name: "厦门", pinyin: "xiamen", region: "福建" },
+    { code: "JJN", name: "泉州", pinyin: "quanzhou", region: "福建" },
+    { code: "SQJ", name: "三明", pinyin: "sanming", region: "福建" },
+    { code: "WUS", name: "武夷山", pinyin: "wuyishan", region: "福建" },
+    // 江西
+    { code: "KHN", name: "南昌", pinyin: "nanchang", region: "江西" },
+    { code: "KOW", name: "赣州", pinyin: "ganzhou", region: "江西" },
+    { code: "JDZ", name: "景德镇", pinyin: "jingdezhen", region: "江西" },
+    { code: "SQD", name: "上饶", pinyin: "shangrao", region: "江西" },
+    { code: "YIC", name: "宜春", pinyin: "yichun", region: "江西" },
+    { code: "JGS", name: "吉安", pinyin: "jian", region: "江西" },
+    // 山东
+    { code: "TNA", name: "济南", pinyin: "jinan", region: "山东" },
+    { code: "TAO", name: "青岛", pinyin: "qingdao", region: "山东" },
+    { code: "YNT", name: "烟台", pinyin: "yantai", region: "山东" },
+    { code: "LYI", name: "临沂", pinyin: "linyi", region: "山东" },
+    { code: "WEH", name: "威海", pinyin: "weihai", region: "山东" },
+    { code: "WFG", name: "潍坊", pinyin: "weifang", region: "山东" },
+    { code: "RIZ", name: "日照", pinyin: "rizhao", region: "山东" },
+    // 河南
+    { code: "CGO", name: "郑州", pinyin: "zhengzhou", region: "河南" },
+    { code: "LYA", name: "洛阳", pinyin: "luoyang", region: "河南" },
+    { code: "NNY", name: "南阳", pinyin: "nanyang", region: "河南" },
+    { code: "XAI", name: "信阳", pinyin: "xinyang", region: "河南" },
+    // 湖北
+    { code: "WUH", name: "武汉", pinyin: "wuhan", region: "湖北" },
+    { code: "YIH", name: "宜昌", pinyin: "yichang", region: "湖北" },
+    { code: "ENH", name: "恩施", pinyin: "enshi", region: "湖北" },
+    { code: "WDS", name: "十堰", pinyin: "shiyan", region: "湖北" },
+    { code: "JZH", name: "荆州", pinyin: "jingzhou", region: "湖北" },
+    // 湖南
+    { code: "CSX", name: "长沙", pinyin: "changsha", region: "湖南" },
+    { code: "DYG", name: "张家界", pinyin: "zhangjiajie", region: "湖南" },
+    { code: "CGD", name: "常德", pinyin: "changde", region: "湖南" },
+    { code: "HJJ", name: "怀化", pinyin: "huaihua", region: "湖南" },
+    { code: "HNY", name: "衡阳", pinyin: "hengyang", region: "湖南" },
+    { code: "HCZ", name: "郴州", pinyin: "chenzhou", region: "湖南" },
+    // 广东
+    { code: "CAN", name: "广州", pinyin: "guangzhou", region: "广东" },
+    { code: "SZX", name: "深圳", pinyin: "shenzhen", region: "广东" },
+    { code: "ZUH", name: "珠海", pinyin: "zhuhai", region: "广东" },
+    { code: "SWA", name: "揭阳", pinyin: "jieyang", region: "广东" },
+    { code: "ZHA", name: "湛江", pinyin: "zhanjiang", region: "广东" },
+    { code: "MXZ", name: "梅州", pinyin: "meizhou", region: "广东" },
+    { code: "HSC", name: "韶关", pinyin: "shaoguan", region: "广东" },
+    // 广西
+    { code: "NNG", name: "南宁", pinyin: "nanning", region: "广西" },
+    { code: "KWL", name: "桂林", pinyin: "guilin", region: "广西" },
+    { code: "BHY", name: "北海", pinyin: "beihai", region: "广西" },
+    { code: "LZH", name: "柳州", pinyin: "liuzhou", region: "广西" },
+    // 海南
+    { code: "HAK", name: "海口", pinyin: "haikou", region: "海南" },
+    { code: "SYX", name: "三亚", pinyin: "sanya", region: "海南" },
+    { code: "XYI", name: "三沙", pinyin: "sansha", region: "海南" },
+    // 重庆
+    { code: "CKG", name: "重庆", pinyin: "chongqing", region: "重庆" },
+    { code: "WXN", name: "万州", pinyin: "wanzhou", region: "重庆" },
+    { code: "JIQ", name: "黔江", pinyin: "qianjiang", region: "重庆" },
+    // 四川
+    { code: "CTU", name: "成都", pinyin: "chengdu", region: "四川" },
+    { code: "MIG", name: "绵阳", pinyin: "mianyang", region: "四川" },
+    { code: "LZO", name: "泸州", pinyin: "luzhou", region: "四川" },
+    { code: "YBP", name: "宜宾", pinyin: "yibin", region: "四川" },
+    { code: "NAO", name: "南充", pinyin: "nanchong", region: "四川" },
+    { code: "DAX", name: "达州", pinyin: "dazhou", region: "四川" },
+    { code: "PZI", name: "攀枝花", pinyin: "panzhihua", region: "四川" },
+    { code: "JZH", name: "九寨沟", pinyin: "jiuzhaigou", region: "四川" },
+    { code: "DCY", name: "稻城亚丁", pinyin: "daochengyading", region: "四川" },
+    // 贵州
+    { code: "KWE", name: "贵阳", pinyin: "guiyang", region: "贵州" },
+    { code: "ZYI", name: "遵义", pinyin: "zunyi", region: "贵州" },
+    { code: "LLB", name: "荔波", pinyin: "libo", region: "贵州" },
+    // 云南
+    { code: "KMG", name: "昆明", pinyin: "kunming", region: "云南" },
+    { code: "LJG", name: "丽江", pinyin: "lijiang", region: "云南" },
+    { code: "JHG", name: "西双版纳", pinyin: "xishuangbanna", region: "云南" },
+    { code: "DLU", name: "大理", pinyin: "dali", region: "云南" },
+    { code: "LNJ", name: "临沧", pinyin: "lincang", region: "云南" },
+    { code: "BSD", name: "保山", pinyin: "baoshan", region: "云南" },
+    // 西藏
+    { code: "LXA", name: "拉萨", pinyin: "lasa", region: "西藏" },
+    { code: "NGQ", name: "阿里", pinyin: "ali", region: "西藏" },
+    // 陕西
+    { code: "XIY", name: "西安", pinyin: "xian", region: "陕西" },
+    { code: "UYN", name: "榆林", pinyin: "yulin", region: "陕西" },
+    { code: "ENY", name: "延安", pinyin: "yanan", region: "陕西" },
+    { code: "HZG", name: "汉中", pinyin: "hanzhong", region: "陕西" },
+    { code: "AKA", name: "安康", pinyin: "ankang", region: "陕西" },
+    // 甘肃
+    { code: "LHW", name: "兰州", pinyin: "lanzhou", region: "甘肃" },
+    { code: "DNH", name: "敦煌", pinyin: "dunhuang", region: "甘肃" },
+    { code: "JGN", name: "嘉峪关", pinyin: "jiayuguan", region: "甘肃" },
+    // 青海
+    { code: "XNN", name: "西宁", pinyin: "xining", region: "青海" },
+    { code: "GOQ", name: "格尔木", pinyin: "geermu", region: "青海" },
+    // 宁夏
+    { code: "INC", name: "银川", pinyin: "yinchuan", region: "宁夏" },
+    // 新疆
+    { code: "URC", name: "乌鲁木齐", pinyin: "wulumuqi", region: "新疆" },
+    { code: "KHG", name: "喀什", pinyin: "kashi", region: "新疆" },
+    { code: "KRL", name: "库尔勒", pinyin: "kuerle", region: "新疆" },
+    { code: "YIN", name: "伊宁", pinyin: "yining", region: "新疆" },
+    { code: "AKU", name: "阿克苏", pinyin: "akesu", region: "新疆" },
+    { code: "HTN", name: "和田", pinyin: "hetian", region: "新疆" },
+    { code: "AAT", name: "阿勒泰", pinyin: "aletai", region: "新疆" },
+    { code: "TLQ", name: "吐鲁番", pinyin: "tulufan", region: "新疆" },
+    { code: "KRY", name: "克拉玛依", pinyin: "kelamayi", region: "新疆" },
+    { code: "HMI", name: "哈密", pinyin: "hami", region: "新疆" },
+  ],
+  international: [
+    // 日本
+    { code: "HND", name: "东京", pinyin: "dongjing", region: "日本" },
+    { code: "NRT", name: "东京成田", pinyin: "dongjingchengtian", region: "日本" },
+    { code: "KIX", name: "大阪", pinyin: "daban", region: "日本" },
+    { code: "NGO", name: "名古屋", pinyin: "mingguwu", region: "日本" },
+    // 韩国
+    { code: "ICN", name: "首尔", pinyin: "shouer", region: "韩国" },
+    { code: "PUS", name: "釜山", pinyin: "fushan", region: "韩国" },
+    // 新加坡
+    { code: "SIN", name: "新加坡", pinyin: "xinjiapo", region: "新加坡" },
+    // 泰国
+    { code: "BKK", name: "曼谷", pinyin: "mangu", region: "泰国" },
+    { code: "HKT", name: "普吉", pinyin: "puji", region: "泰国" },
+    // 马来西亚
+    { code: "KUL", name: "吉隆坡", pinyin: "jilongpo", region: "马来西亚" },
+    { code: "BKI", name: "亚庇", pinyin: "yabi", region: "马来西亚" },
+    // 越南
+    { code: "HAN", name: "河内", pinyin: "henei", region: "越南" },
+    { code: "SGN", name: "胡志明市", pinyin: "huzhimingshi", region: "越南" },
+    // 菲律宾
+    { code: "MNL", name: "马尼拉", pinyin: "manila", region: "菲律宾" },
+    // 印度尼西亚
+    { code: "CGK", name: "雅加达", pinyin: "yajiada", region: "印度尼西亚" },
+    { code: "DPS", name: "巴厘岛", pinyin: "balidao", region: "印度尼西亚" },
+    // 柬埔寨
+    { code: "PNH", name: "金边", pinyin: "jinbian", region: "柬埔寨" },
+    // 缅甸
+    { code: "RGN", name: "仰光", pinyin: "yangguang", region: "缅甸" },
+    // 印度
+    { code: "DEL", name: "新德里", pinyin: "xindeli", region: "印度" },
+    { code: "BOM", name: "孟买", pinyin: "mengmai", region: "印度" },
+    // 阿联酋
+    { code: "DXB", name: "迪拜", pinyin: "dibai", region: "阿联酋" },
+    { code: "AUH", name: "阿布扎比", pinyin: "abuzhabi", region: "阿联酋" },
+    // 卡塔尔
+    { code: "DOH", name: "多哈", pinyin: "duoha", region: "卡塔尔" },
+    // 土耳其
+    { code: "IST", name: "伊斯坦布尔", pinyin: "yisitanbuer", region: "土耳其" },
+    // 以色列
+    { code: "TLV", name: "特拉维夫", pinyin: "telaweifu", region: "以色列" },
+    // 英国
+    { code: "LHR", name: "伦敦", pinyin: "lundun", region: "英国" },
+    { code: "MAN", name: "曼彻斯特", pinyin: "manchesite", region: "英国" },
+    // 法国
+    { code: "CDG", name: "巴黎", pinyin: "bali", region: "法国" },
+    { code: "NCE", name: "尼斯", pinyin: "nisi", region: "法国" },
+    // 德国
+    { code: "FRA", name: "法兰克福", pinyin: "falankefu", region: "德国" },
+    { code: "MUC", name: "慕尼黑", pinyin: "munihei", region: "德国" },
+    // 荷兰
+    { code: "AMS", name: "阿姆斯特丹", pinyin: "amusitedan", region: "荷兰" },
+    // 意大利
+    { code: "FCO", name: "罗马", pinyin: "luoma", region: "意大利" },
+    { code: "MXP", name: "米兰", pinyin: "milan", region: "意大利" },
+    // 西班牙
+    { code: "MAD", name: "马德里", pinyin: "madeli", region: "西班牙" },
+    { code: "BCN", name: "巴塞罗那", pinyin: "basailuona", region: "西班牙" },
+    // 希腊
+    { code: "ATH", name: "雅典", pinyin: "yadian", region: "希腊" },
+    // 瑞士
+    { code: "ZRH", name: "苏黎世", pinyin: "sulishi", region: "瑞士" },
+    // 奥地利
+    { code: "VIE", name: "维也纳", pinyin: "weiyena", region: "奥地利" },
+    // 俄罗斯
+    { code: "SVO", name: "莫斯科", pinyin: "mosike", region: "俄罗斯" },
+    { code: "LED", name: "圣彼得堡", pinyin: "shengbidebao", region: "俄罗斯" },
+    // 美国
+    { code: "JFK", name: "纽约肯尼迪", pinyin: "niuyuekennidi", region: "美国" },
+    { code: "EWR", name: "纽瓦克", pinyin: "niuwa", region: "美国" },
+    { code: "LAX", name: "洛杉矶", pinyin: "luoshanji", region: "美国" },
+    { code: "ORD", name: "芝加哥", pinyin: "zhijiage", region: "美国" },
+    { code: "DFW", name: "达拉斯", pinyin: "dalasi", region: "美国" },
+    { code: "ATL", name: "亚特兰大", pinyin: "yatelanda", region: "美国" },
+    { code: "SFO", name: "旧金山", pinyin: "jiujinshan", region: "美国" },
+    { code: "MIA", name: "迈阿密", pinyin: "maiami", region: "美国" },
+    // 加拿大
+    { code: "YYZ", name: "多伦多", pinyin: "duolunduo", region: "加拿大" },
+    { code: "YVR", name: "温哥华", pinyin: "wengehua", region: "加拿大" },
+    { code: "YUL", name: "蒙特利尔", pinyin: "mengtelier", region: "加拿大" },
+    // 墨西哥
+    { code: "MEX", name: "墨西哥城", pinyin: "moxigecheng", region: "墨西哥" },
+    { code: "CUN", name: "坎昆", pinyin: "kankun", region: "墨西哥" },
+    // 澳大利亚
+    { code: "SYD", name: "悉尼", pinyin: "xini", region: "澳大利亚" },
+    { code: "MEL", name: "墨尔本", pinyin: "moerben", region: "澳大利亚" },
+    { code: "BNE", name: "布里斯班", pinyin: "bulisiban", region: "澳大利亚" },
+    { code: "PER", name: "珀斯", pinyin: "pos", region: "澳大利亚" },
+    // 新西兰
+    { code: "AKL", name: "奥克兰", pinyin: "aokelan", region: "新西兰" },
+    { code: "CHC", name: "基督城", pinyin: "jiducheng", region: "新西兰" },
+    // 巴西
+    { code: "GRU", name: "圣保罗", pinyin: "shengbaoluo", region: "巴西" },
+    { code: "GIG", name: "里约热内卢", pinyin: "liyuereineilu", region: "巴西" },
+    // 阿根廷
+    { code: "EZE", name: "布宜诺斯艾利斯", pinyin: "buyinuosuaisailisi", region: "阿根廷" },
+    // 智利
+    { code: "SCL", name: "圣地亚哥", pinyin: "shengdiyage", region: "智利" },
+    // 巴拿马
+    { code: "PTY", name: "巴拿马城", pinyin: "banamacheng", region: "巴拿马" },
+    // 南非
+    { code: "JNB", name: "约翰内斯堡", pinyin: "yuehanneisibao", region: "南非" },
+    { code: "CPT", name: "开普敦", pinyin: "kaipu", region: "南非" },
+    // 埃及
+    { code: "CAI", name: "开罗", pinyin: "kailuo", region: "埃及" },
+    // 肯尼亚
+    { code: "NBO", name: "内罗毕", pinyin: "neiluobi", region: "肯尼亚" },
+    // 埃塞俄比亚
+    { code: "ADD", name: "亚的斯亚贝巴", pinyin: "yadesiyabeiba", region: "埃塞俄比亚" },
+    // 摩洛哥
+    { code: "CMN", name: "卡萨布兰卡", pinyin: "kasabulan", region: "摩洛哥" },
+  ],
+};
+
+type FlightResult = {
+  id: string;
+  airline: string;
+  airlineCode: string;
+  logo: string;
+  color: string;
+  flightNo: string;
+  aircraft: string;
+  departTime: string;
+  arriveTime: string;
+  departAirport: string;
+  arriveAirport: string;
+  durationMin: number;
+  price: number;
+  cabin: "economy" | "business" | "first";
+  seatsLeft: number;
+  onTimeRate: number;
+};
+
+const DOMESTIC_AIRLINES: { code: string; name: string; logo: string; color: string }[] = [
+  { code: "CA", name: "中国国航", logo: "🇨🇳", color: "#E60012" },
+  { code: "MU", name: "东方航空", logo: "🦅", color: "#1B3E8C" },
+  { code: "CZ", name: "南方航空", logo: "🛫", color: "#005BAC" },
+  { code: "HU", name: "海南航空", logo: "🌊", color: "#C8102E" },
+  { code: "MF", name: "厦门航空", logo: "🦢", color: "#0066B3" },
+  { code: "ZH", name: "深圳航空", logo: "✈️", color: "#D7000F" },
+  { code: "FM", name: "上海航空", logo: "🌆", color: "#C8102E" },
+  { code: "SC", name: "山东航空", logo: "🏔️", color: "#005BAC" },
+  { code: "3U", name: "四川航空", logo: "🐼", color: "#E60012" },
+  { code: "9C", name: "春秋航空", logo: "🍃", color: "#5BA826" },
+  { code: "HO", name: "吉祥航空", logo: "🍀", color: "#C8102E" },
+  { code: "GS", name: "天津航空", logo: "⛅", color: "#005BAC" },
+];
+
+const INTERNATIONAL_AIRLINES: { code: string; name: string; logo: string; color: string }[] = [
+  { code: "CA", name: "中国国航", logo: "🇨🇳", color: "#E60012" },
+  { code: "JL", name: "日本航空", logo: "🗾", color: "#E60012" },
+  { code: "NH", name: "全日空", logo: "🍣", color: "#134483" },
+  { code: "KE", name: "大韩航空", logo: "🇰🇷", color: "#002569" },
+  { code: "OZ", name: "韩亚航空", logo: "⭐", color: "#003B7C" },
+  { code: "TG", name: "泰国航空", logo: "🇹🇭", color: "#5D2E8C" },
+  { code: "SQ", name: "新加坡航空", logo: "🇸🇬", color: "#003876" },
+  { code: "CX", name: "国泰航空", logo: "🇭🇰", color: "#006564" },
+  { code: "EK", name: "阿联酋航空", logo: "🇦🇪", color: "#D71921" },
+  { code: "QR", name: "卡塔尔航空", logo: "🇶🇦", color: "#5C0F3C" },
+  { code: "AF", name: "法国航空", logo: "🇫🇷", color: "#002157" },
+  { code: "BA", name: "英国航空", logo: "🇬🇧", color: "#075AAA" },
+  { code: "LH", name: "汉莎航空", logo: "🇩🇪", color: "#05164D" },
+  { code: "AA", name: "美国航空", logo: "🇺🇸", color: "#0078D2" },
+  { code: "UA", name: "美联航", logo: "✈️", color: "#002244" },
+  { code: "QF", name: "澳洲航空", logo: "🇦🇺", color: "#E4002B" },
+];
 
 export default function MoonCartApp() {
   const [view, setView] = useState<View>("home");
+  const [homeTab, setHomeTab] = useState<"index" | "takeout" | "travel">("index");
+  const [listChannel, setListChannel] = useState<"index" | "takeout" | "travel">("index");
+  const [categoryChannel, setCategoryChannel] = useState<"index" | "takeout" | "travel">("index");
+  const [subKeyword, setSubKeyword] = useState("");
+  const [listTitle, setListTitle] = useState<string>("");
+  const [categoryExpanded, setCategoryExpanded] = useState(false);
+  const categorySwipeRef = useRef({ x: 0, y: 0, moved: false });
+  const listTabScrollRef = useRef<HTMLDivElement>(null);
+
+  // 滚动 list 页 tab 栏到选中的子分类（居中显示）
+  const scrollListTabToCenter = useCallback(() => {
+    const container = listTabScrollRef.current as HTMLDivElement | null;
+    if (!container) return;
+    const buttons = Array.from(
+      container.querySelectorAll<HTMLElement>("button[data-label]")
+    );
+    const target = buttons.find((b) => b.dataset.label === listTitle);
+    if (target) {
+      const scrollLeft =
+        target.offsetLeft - container.offsetLeft - (container.clientWidth - target.offsetWidth) / 2;
+      container.scrollTo({
+        left: Math.max(0, scrollLeft),
+        behavior: "auto",
+      });
+    }
+  }, [listTitle]);
+
+  // list 页面 tab 栏容器挂载时立即滚动（无延迟）
+  const listTabScrollCallback = useCallback(
+    (node: HTMLDivElement | null) => {
+      (listTabScrollRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+      if (node) {
+        // 等 React 完成 DOM 插入后再滚动
+        requestAnimationFrame(() => scrollListTabToCenter());
+      }
+    },
+    [scrollListTabToCenter]
+  );
+
+  // list 页面内切换 tab 时立即滚动
+  useEffect(() => {
+    if (view !== "list") return;
+    scrollListTabToCenter();
+  }, [view, listTitle, listChannel, scrollListTabToCenter]);
   const [selectedCategory, setSelectedCategory] = useState<
     string | undefined
   >();
@@ -198,6 +703,102 @@ export default function MoonCartApp() {
   const [wishInput, setWishInput] = useState("");
   const [messageInput, setMessageInput] = useState("");
   const [orderPanelOpen, setOrderPanelOpen] = useState(false);
+  const [flightTripType, setFlightTripType] = useState<"oneway" | "roundtrip">("oneway");
+  const [flightFrom, setFlightFrom] = useState("北京");
+  const [flightTo, setFlightTo] = useState("上海");
+  const [flightDate, setFlightDate] = useState("");
+  const [flightReturnDate, setFlightReturnDate] = useState("");
+  const [flightCabin, setFlightCabin] = useState<"economy" | "business" | "first">("economy");
+  const [flightAdults, setFlightAdults] = useState(1);
+  const [flightChildren, setFlightChildren] = useState(0);
+  const [flightCityPicker, setFlightCityPicker] = useState<null | "from" | "to">(null);
+  const [flightCityTab, setFlightCityTab] = useState<"domestic" | "international">("domestic");
+  const [flightCityKeyword, setFlightCityKeyword] = useState("");
+  const [flightResults, setFlightResults] = useState<null | FlightResult[]>(null);
+  const [flightSearching, setFlightSearching] = useState(false);
+  const [flightSortBy, setFlightSortBy] = useState<"price" | "time" | "duration">("price");
+  const [selectedFlight, setSelectedFlight] = useState<null | FlightResult>(null);
+  const [flightBaggage, setFlightBaggage] = useState<"none" | "20kg" | "40kg">("none");
+  const flightBaggagePrice = flightBaggage === "none" ? 0 : flightBaggage === "20kg" ? 80 : 180;
+  const flightTotalPrice = useMemo(() => {
+    if (!selectedFlight) return 0;
+    const pax = flightAdults + flightChildren;
+    return (selectedFlight.price + flightBaggagePrice) * pax;
+  }, [selectedFlight, flightBaggagePrice, flightAdults, flightChildren]);
+  const filteredFlightCities = useMemo(() => {
+    const list = FLIGHT_CITY_DATA[flightCityTab];
+    const kw = flightCityKeyword.trim().toLowerCase();
+    if (!kw) return list;
+    return list.filter(
+      (c) => c.name.includes(kw) || c.pinyin.includes(kw) || c.code.toLowerCase().includes(kw)
+    );
+  }, [flightCityTab, flightCityKeyword]);
+  const groupedFlightCities = useMemo(() => {
+    if (flightCityKeyword.trim()) return null;
+    const groups: Record<string, FlightCity[]> = {};
+    FLIGHT_CITY_DATA[flightCityTab].forEach((c) => {
+      const r = c.region || "其他";
+      if (!groups[r]) groups[r] = [];
+      groups[r].push(c);
+    });
+    return groups;
+  }, [flightCityTab, flightCityKeyword]);
+  const sortedFlightResults = useMemo(() => {
+    if (!flightResults) return [];
+    const arr = [...flightResults];
+    if (flightSortBy === "price") arr.sort((a, b) => a.price - b.price);
+    else if (flightSortBy === "time") arr.sort((a, b) => a.departTime.localeCompare(b.departTime));
+    else arr.sort((a, b) => a.durationMin - b.durationMin);
+    return arr;
+  }, [flightResults, flightSortBy]);
+  const runFlightSearch = () => {
+    if (!flightDate || flightFrom === flightTo) return;
+    setFlightSearching(true);
+    setFlightResults(null);
+    setTimeout(() => {
+      const isIntl = flightCityTab === "international";
+      const airlines = isIntl ? INTERNATIONAL_AIRLINES : DOMESTIC_AIRLINES;
+      const seedStr = `${flightFrom}${flightTo}${flightDate}${flightCabin}`;
+      let seed = 0;
+      for (let i = 0; i < seedStr.length; i++) seed = (seed * 31 + seedStr.charCodeAt(i)) >>> 0;
+      const rand = (min: number, max: number) => min + ((seed = (seed * 1103515245 + 12345) >>> 0) % (max - min + 1));
+      const basePrice = flightCabin === "economy" ? 600 : flightCabin === "business" ? 2400 : 5800;
+      const distanceFactor = isIntl ? 6 : 1.2;
+      const cabinMultiplier = flightCabin === "economy" ? 1 : flightCabin === "business" ? 2.6 : 5.5;
+      const results: FlightResult[] = airlines.map((airline, idx) => {
+        const hour = 6 + Math.floor(rand(0, 14));
+        const minute = Math.floor(rand(0, 11)) * 5;
+        const dep = `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+        const durMin = 80 + Math.floor(rand(0, 180)) + (isIntl ? 360 : 0);
+        const arrMin = hour * 60 + minute + durMin;
+        const arrH = Math.floor(arrMin / 60) % 24;
+        const arrM = arrMin % 60;
+        const arr = `${String(arrH).padStart(2, "0")}:${String(arrM).padStart(2, "0")}`;
+        const priceJitter = (idx + 1) * 30 + rand(0, 80);
+        const price = Math.round((basePrice + priceJitter) * distanceFactor * cabinMultiplier);
+        return {
+          id: `${airline.code}${1000 + idx}`,
+          airline: airline.name,
+          airlineCode: airline.code,
+          logo: airline.logo,
+          color: airline.color,
+          flightNo: `${airline.code}${1000 + idx}`,
+          aircraft: ["A320", "A330", "B737", "B777", "A350"][rand(0, 4)],
+          departTime: dep,
+          arriveTime: arr,
+          departAirport: `${flightFrom}机场`,
+          arriveAirport: `${flightTo}机场`,
+          durationMin: durMin,
+          price,
+          cabin: flightCabin,
+          seatsLeft: rand(0, 12),
+          onTimeRate: 80 + rand(0, 19),
+        };
+      });
+      setFlightResults(results);
+      setFlightSearching(false);
+    }, 700);
+  };
   const [darkMode, setDarkMode] = useState(false);
   const [orderFilter, setOrderFilter] = useState("all");
   const [blindBoxProduct, setBlindBoxProduct] = useState<Product | null>(null);
@@ -278,16 +879,20 @@ export default function MoonCartApp() {
         const completed: DeliveryOrder[] = [];
         const moving = orders
           .map((order) => {
+            const steps = getDeliverySteps(order.channel);
             const stepIndex = Math.min(
-              deliverySteps.length - 1,
+              steps.length - 1,
               order.stepIndex + 1,
             );
             const nextOrder = { ...order, stepIndex };
-            if (stepIndex >= deliverySteps.length - 1)
+            if (stepIndex >= steps.length - 1)
               completed.push(nextOrder);
             return nextOrder;
           })
-          .filter((order) => order.stepIndex < deliverySteps.length - 1);
+          .filter((order) => {
+            const steps = getDeliverySteps(order.channel);
+            return order.stepIndex < steps.length - 1;
+          });
 
         completed.forEach((order) => {
           completeOrder(order.amount, order.items);
@@ -306,10 +911,18 @@ export default function MoonCartApp() {
     }, 6000);
   }, [activeDeliveries.length, completeOrder]);
 
-  const visibleProducts = useMemo(
-    () => pickProducts(selectedCategory),
-    [selectedCategory],
-  );
+  const visibleProducts = useMemo(() => {
+    const channelCats = channelCategories[listChannel];
+    const kw = subKeyword.trim();
+    if (selectedCategory) {
+      return pickProducts(selectedCategory)
+        .filter((p) => channelCats.includes(p.category))
+        .filter((p) => !kw || new RegExp(kw).test(p.title));
+    }
+    return products
+      .filter((p) => p.category !== "盲盒" && channelCats.includes(p.category))
+      .filter((p) => !kw || new RegExp(kw).test(p.title));
+  }, [selectedCategory, listChannel, subKeyword]);
   const cartTotal = cart.reduce(
     (sum, item) => sum + (item.finalPrice ?? item.price) * item.quantity,
     0,
@@ -340,9 +953,17 @@ export default function MoonCartApp() {
     return purchases;
   }, [stats.purchases, orderFilter]);
 
-  const openCategory = (category?: string) => {
+  const openCategory = (
+    category?: string,
+    channel: "index" | "takeout" | "travel" = "index",
+    keyword?: string,
+    title?: string,
+  ) => {
     setSelectedCategory(category);
-    setView(category ? "list" : "category");
+    setListChannel(channel);
+    setSubKeyword(keyword ?? "");
+    setListTitle(title ?? category ?? "全部商品");
+    setView("list");
   };
 
   const openProduct = (product: Product) => {
@@ -371,23 +992,21 @@ export default function MoonCartApp() {
         items: orderItems,
         stepIndex: 0,
         createdAt: new Date().toISOString(),
+        channel: getChannelFromItems(orderItems),
       },
     ]);
   };
 
   const accelerate = (id?: string) => {
     setActiveDeliveries((orders) =>
-      orders.map((order) =>
-        !id || order.id === id
-          ? {
-              ...order,
-              stepIndex: Math.min(
-                deliverySteps.length - 1,
-                order.stepIndex + 2,
-              ),
-            }
-          : order,
-      ),
+      orders.map((order) => {
+        if (!(!id || order.id === id)) return order;
+        const steps = getDeliverySteps(order.channel);
+        return {
+          ...order,
+          stepIndex: Math.min(steps.length - 1, order.stepIndex + 2),
+        };
+      }),
     );
   };
 
@@ -1026,30 +1645,75 @@ export default function MoonCartApp() {
                       <div className="text-[10px] text-quiet">Moon Cart</div>
                     </div>
                   </div>
-                  <button
-                    className="flex-1 flex items-center gap-2 rounded-full bg-white px-4 py-3 shadow-soft active:scale-[0.98] transition-transform"
-                    onClick={() => setView("category")}
-                  >
-                    <Search size={16} className="text-quiet" />
-                    <span className="text-sm text-quiet">搜索你想买的</span>
-                  </button>
-                  <button
-                    className="h-10 w-10 rounded-full bg-primary flex items-center justify-center text-xl active:scale-95 transition-transform shadow-[0_2px_8px_rgba(255,80,0,0.3)]"
-                    onClick={() => setView("mine")}
-                    aria-label="我的"
-                  >
-                    {stats.avatar || "🌙"}
-                  </button>
+                  <div className="flex-1 flex items-center justify-center gap-0.5 rounded-full bg-black/[0.05] p-1">
+                    <button
+                      onClick={() => setHomeTab("index")}
+                      className={`flex-1 py-2 rounded-full text-sm font-medium transition-all ${
+                        homeTab === "index"
+                          ? "bg-white text-ink shadow-sm"
+                          : "text-quiet"
+                      }`}
+                    >
+                      首页
+                    </button>
+                    <button
+                      onClick={() => setHomeTab("takeout")}
+                      className={`flex-1 py-2 rounded-full text-sm font-medium transition-all ${
+                        homeTab === "takeout"
+                          ? "bg-white text-ink shadow-sm"
+                          : "text-quiet"
+                      }`}
+                    >
+                      外卖
+                    </button>
+                    <button
+                      onClick={() => setHomeTab("travel")}
+                      className={`flex-1 py-2 rounded-full text-sm font-medium transition-all ${
+                        homeTab === "travel"
+                          ? "bg-white text-ink shadow-sm"
+                          : "text-quiet"
+                      }`}
+                    >
+                      旅游
+                    </button>
+                  </div>
                 </div>
+                <button
+                  className="mt-3 w-full flex items-center gap-2 rounded-full bg-white px-4 py-3 shadow-soft active:scale-[0.98] transition-transform"
+                  onClick={() => {
+                    setCategoryChannel(homeTab);
+                    setView("category");
+                  }}
+                >
+                  <Search size={16} className="text-quiet" />
+                  <span className="text-sm text-quiet">
+                    {homeTab === "takeout" ? "搜索美食、店铺" : homeTab === "travel" ? "搜索酒店、景点、机票" : "搜索你想买的"}
+                  </span>
+                </button>
               </div>
 
               <div className="mt-3 hide-scrollbar -mx-4 flex gap-3 overflow-x-auto px-4">
-                {[
-                  { emoji: "🎊", text: "限时特价", bg: "from-coral to-gold" },
-                  { emoji: "✨", text: "新人专享", bg: "from-pink-400 to-rose-400" },
-                  { emoji: "🎁", text: "每日盲盒", bg: "from-violet-400 to-purple-500" },
-                  { emoji: "🔥", text: "热销榜单", bg: "from-orange-500 to-red-500" },
-                ].map((banner, i) => (
+                {(homeTab === "takeout"
+                  ? [
+                      { emoji: "🍜", text: "满30减10", bg: "from-red-500 to-orange-500" },
+                      { emoji: "🥤", text: "奶茶第二杯半价", bg: "from-pink-400 to-rose-400" },
+                      { emoji: "🍱", text: "新人专享0元", bg: "from-amber-400 to-yellow-500" },
+                      { emoji: "⚡", text: "闪送30分钟达", bg: "from-blue-500 to-cyan-500" },
+                    ]
+                  : homeTab === "travel"
+                  ? [
+                      { emoji: "✈️", text: "机票买一送一", bg: "from-sky-500 to-blue-600" },
+                      { emoji: "🏨", text: "酒店5折起", bg: "from-violet-500 to-purple-600" },
+                      { emoji: "🎫", text: "门票特惠", bg: "from-emerald-500 to-teal-600" },
+                      { emoji: "🗺️", text: "跟团游立减500", bg: "from-orange-500 to-amber-600" },
+                    ]
+                  : [
+                      { emoji: "🎊", text: "限时特价", bg: "from-coral to-gold" },
+                      { emoji: "✨", text: "新人专享", bg: "from-pink-400 to-rose-400" },
+                      { emoji: "🎁", text: "每日盲盒", bg: "from-violet-400 to-purple-500" },
+                      { emoji: "🔥", text: "热销榜单", bg: "from-orange-500 to-red-500" },
+                    ]
+                ).map((banner, i) => (
                   <div
                     key={i}
                     className={`shrink-0 w-[70%] h-28 rounded-[24px] bg-gradient-to-r ${banner.bg} p-5 flex items-center justify-between text-white shadow-lg`}
@@ -1063,67 +1727,204 @@ export default function MoonCartApp() {
                 ))}
               </div>
 
-              <div className="mt-4 grid grid-cols-5 gap-2">
-                {[
-                  { icon: "🍔", label: "外卖美食" },
-                  { icon: "🍎", label: "生鲜水果" },
-                  { icon: "👗", label: "服饰鞋包" },
-                  { icon: "📱", label: "数码家电" },
-                  { icon: "💄", label: "美妆个护" },
-                  { icon: "🏠", label: "家居日用" },
-                  { icon: "📚", label: "图书文具" },
-                  { icon: "🎮", label: "玩具游戏" },
-                  { icon: "✈️", label: "旅行出游" },
-                  { icon: "🛍", label: "全部" },
-                ].map((item) => (
-                  <button
-                    key={item.label}
-                    className="flex flex-col items-center gap-1.5 p-2 active:scale-95 transition-transform"
-                    onClick={() => setView("category")}
+              {homeTab === "index" ? (
+                <div className="relative mt-4">
+                  <div
+                    className="overflow-hidden cursor-grab select-none"
+                    style={{
+                      height: categoryExpanded
+                        ? `${HOME_CATEGORY_EXPANDED_HEIGHT}px`
+                        : `${HOME_CATEGORY_COLLAPSED_HEIGHT}px`,
+                      transition: "height 0.3s ease",
+                      touchAction: "pan-y",
+                    }}
+                    onPointerDown={(e) => {
+                      categorySwipeRef.current = {
+                        x: e.clientX,
+                        y: e.clientY,
+                        moved: false,
+                      };
+                      e.currentTarget.setPointerCapture?.(e.pointerId);
+                    }}
+                    onPointerMove={(e) => {
+                      const deltaX = e.clientX - categorySwipeRef.current.x;
+                      const deltaY = e.clientY - categorySwipeRef.current.y;
+                      if (Math.abs(deltaX) > 16 && Math.abs(deltaX) > Math.abs(deltaY)) {
+                        categorySwipeRef.current.moved = true;
+                      }
+                    }}
+                    onPointerUp={(e) => {
+                      const deltaX = e.clientX - categorySwipeRef.current.x;
+                      const deltaY = e.clientY - categorySwipeRef.current.y;
+                      if (Math.abs(deltaX) > Math.abs(deltaY) && deltaX < -40) {
+                        categorySwipeRef.current.moved = true;
+                        setCategoryExpanded(true);
+                      }
+                      if (Math.abs(deltaX) > Math.abs(deltaY) && deltaX > 40) {
+                        categorySwipeRef.current.moved = true;
+                        setCategoryExpanded(false);
+                      }
+                      e.currentTarget.releasePointerCapture?.(e.pointerId);
+                    }}
+                    onPointerCancel={() => {
+                      categorySwipeRef.current.moved = false;
+                    }}
                   >
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-2xl shadow-soft">
-                      {item.icon}
+                    <div className="grid grid-cols-5 gap-x-2 gap-y-3">
+                      {HOME_CATEGORIES.map((item) => (
+                        <button
+                          key={item.label}
+                          className="flex h-[76px] flex-col items-center gap-1 p-1 active:scale-95 transition-transform"
+                          style={{ height: HOME_CATEGORY_ROW_HEIGHT }}
+                          onClick={(e) => {
+                            if (categorySwipeRef.current.moved) {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              categorySwipeRef.current.moved = false;
+                              return;
+                            }
+                            openCategory(item.category, homeTab, item.keyword, item.label)
+                          }}
+                        >
+                          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white text-2xl shadow-soft">
+                            {item.icon}
+                          </div>
+                          <span className="w-full text-center text-[11px] leading-4 text-ink">
+                            {item.label}
+                          </span>
+                        </button>
+                      ))}
                     </div>
-                    <span className="text-[11px] text-ink">{item.label}</span>
-                  </button>
-                ))}
-              </div>
+                  </div>
 
-              <div className="mt-5 mb-3 flex items-center justify-between">
-                <h2 className="text-lg font-semibold">🔥 猜你喜欢</h2>
-                <button
-                  className="text-xs text-quiet"
-                  onClick={() => setView("category")}
-                >
-                  更多 ›
-                </button>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                {products
-                  .filter((p) => p.category !== "盲盒")
-                  .slice(0, 10)
-                  .map((product, index) => {
-                    const isLarge = index % 5 === 0;
-                    return (
-                      <ProductCard
-                        key={product.id}
-                        product={product}
-                        onClick={() => openProduct(product)}
-                        onToggleFavorite={() => toggleFavorite(product)}
-                        isFavorite={isFavorite(product.id)}
+                  <div className="mt-2 flex items-center justify-center">
+                    <button
+                      type="button"
+                      className="h-1.5 w-16 rounded-full bg-gray-100 overflow-hidden"
+                      onClick={() => setCategoryExpanded((v) => !v)}
+                      aria-label="展开或收起分类"
+                    >
+                      <span
+                        className="block h-full rounded-full bg-primary transition-all duration-300"
+                        style={{ width: categoryExpanded ? "100%" : "20%" }}
                       />
-                    );
-                  })}
-              </div>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-4 grid grid-cols-5 gap-2">
+                  {(homeTab === "takeout"
+                    ? [
+                        { icon: "🍔", label: "快餐便当", category: "外卖", keyword: "汉堡|炸鸡|拌饭|套餐|饭|卷|鸡|堡" },
+                        { icon: "🧋", label: "奶茶饮品", category: "外卖", keyword: "奶茶|茶|咖啡|奶|饮|果汁|柠" },
+                        { icon: "🍢", label: "烧烤炸串", category: "外卖", keyword: "烤|炸|串|螺蛳|小龙虾|虾" },
+                        { icon: "🍰", label: "蛋糕甜点", category: "外卖", keyword: "蛋糕|甜|布丁|披萨|芝士" },
+                        { icon: "🍜", label: "面食粥品", category: "外卖", keyword: "面|粥|粉|意面|螺" },
+                        { icon: "🍣", label: "日料寿司", category: "外卖", keyword: "寿司|日料|刺身|日式" },
+                        { icon: "🍕", label: "披萨意面", category: "外卖", keyword: "披萨|意面|芝士|西餐" },
+                        { icon: "🥡", label: "中式正餐", category: "外卖", keyword: "火锅|香锅|冒菜|锅|中餐|炒|炖" },
+                        { icon: "🍟", label: "西式快餐", category: "外卖", keyword: "薯|汉堡|鸡|堡|快餐" },
+                        { icon: "🛍", label: "全部", category: undefined, keyword: "" },
+                      ]
+                    : [
+                        { icon: "✈️", label: "机票", action: "flight" },
+                        { icon: "🏨", label: "酒店", category: "旅行", keyword: "酒店|住宿|房|民宿|客栈" },
+                        { icon: "🎫", label: "门票", category: "旅行", keyword: "门票|票|园|故宫|迪士尼|影城|长隆|野生动物|冰雪" },
+                        { icon: "🚌", label: "跟团游", category: "旅行", keyword: "跟团|一日游|游|朝圣|深度" },
+                        { icon: "🚗", label: "租车", category: "旅行", keyword: "租车|自驾|车" },
+                        { icon: "🏖️", label: "度假", category: "旅行", keyword: "度假|海岛|海滩|海景|三亚|马尔代夫|亚特兰蒂斯|巴厘" },
+                        { icon: "🏔️", label: "周边游", category: "旅行", keyword: "周边|西湖|长城|慕田峪|古镇|苏州|南京|园林|中山" },
+                        { icon: "🎢", label: "游乐园", category: "旅行", keyword: "迪士尼|影城|游乐园|乐园|长隆|野生动物|欢乐谷" },
+                        { icon: "⛺", label: "露营", category: "旅行", keyword: "露营|帐篷|营地|草原" },
+                        { icon: "🛍", label: "全部", category: undefined, keyword: "" },
+                      ]
+                  ).map((item) => (
+                    <button
+                      key={item.label}
+                      className="flex flex-col items-center gap-1.5 p-2 active:scale-95 transition-transform"
+                      onClick={() => {
+                        const i = item as { action?: string; category?: string; keyword?: string; label?: string };
+                        if (i.action === "flight") {
+                          setView("flight");
+                        } else {
+                          openCategory(i.category, homeTab, i.keyword, i.label);
+                        }
+                      }}
+                    >
+                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-2xl shadow-soft">
+                        {item.icon}
+                      </div>
+                      <span className="text-[11px] text-ink">{item.label}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
 
-              <div className="mt-6 mb-3 flex items-center justify-between">
-                <h2 className="text-lg font-semibold">💰 今日特惠</h2>
-                <span className="text-xs text-quiet">低至5折</span>
+              {homeTab === "index" && (
+                <>
+                  <div className="mt-5 mb-3 flex items-center justify-between">
+                    <h2 className="text-lg font-semibold">🎁 今晚盲盒</h2>
+                    <span className="text-xs text-quiet">
+                      {blindBoxCanOpen ? "每天一次" : "明天再来"}
+                    </span>
+                  </div>
+                  <button
+                    disabled={!blindBoxCanOpen || blindBoxOpening}
+                    onClick={() => openBlindBox()}
+                    className={`w-full rounded-[24px] p-5 text-left transition-all shadow-soft ${
+                      blindBoxCanOpen
+                        ? "bg-white active:scale-[0.98]"
+                        : "bg-white/60 opacity-60"
+                    }`}
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className={`h-20 w-20 shrink-0 rounded-[20px] flex items-center justify-center text-5xl ${
+                        blindBoxCanOpen
+                          ? "bg-primary/10"
+                          : "bg-black/[0.03]"
+                      }`}>
+                        {blindBoxCanOpen ? "🎁" : "🔒"}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-lg font-bold text-ink">神秘惊喜盲盒</div>
+                        <div className="mt-1 text-xs text-quiet">
+                          {blindBoxCanOpen ? "点我开启今日惊喜" : "明天再来开启新的惊喜"}
+                        </div>
+                        <div className="mt-2 flex items-center gap-2">
+                          <span className="inline-block rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-primary">
+                            1000+款惊喜
+                          </span>
+                          <span className="inline-block rounded-full bg-black/[0.05] px-2.5 py-0.5 text-[11px] font-medium text-quiet">
+                            {blindBoxCanOpen ? "今日可开" : "明日再来"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                </>
+              )}
+
+              <div className={`${homeTab === "index" ? "mt-6" : "mt-5"} mb-3 flex items-center justify-between`}>
+                <h2 className="text-lg font-semibold">
+                  {homeTab === "takeout" ? "🍜 附近热销" : homeTab === "travel" ? "🏖️ 热门目的地" : "💰 今日特惠"}
+                </h2>
+                <span className="text-xs text-quiet">
+                  {homeTab === "takeout" ? "30分钟送达" : homeTab === "travel" ? "超值低价" : "低至5折"}
+                </span>
               </div>
               <div className="hide-scrollbar -mx-4 flex gap-3 overflow-x-auto px-4">
                 {products
-                  .filter((p) => p.category !== "盲盒")
-                  .slice(10, 20)
+                  .filter((p) =>
+                    homeTab === "takeout"
+                      ? p.category === "外卖"
+                      : homeTab === "travel"
+                      ? p.category === "旅行"
+                      : p.category !== "盲盒"
+                  )
+                  .slice(
+                    homeTab === "takeout" || homeTab === "travel" ? 0 : 10,
+                    homeTab === "takeout" || homeTab === "travel" ? 10 : 20
+                  )
                   .map((product) => (
                     <button
                       key={product.id}
@@ -1145,50 +1946,61 @@ export default function MoonCartApp() {
                             {money(product.price * 1.8)}
                           </span>
                         </div>
+                        {homeTab === "takeout" && (
+                          <div className="mt-1 text-[10px] text-quiet">
+                            ⏱ 约30分钟
+                          </div>
+                        )}
+                        {homeTab === "travel" && (
+                          <div className="mt-1 text-[10px] text-quiet">
+                            ⭐ 4.8分 已售2.3k
+                          </div>
+                        )}
                       </div>
                     </button>
                   ))}
               </div>
 
               <div className="mt-6 mb-3 flex items-center justify-between">
-                <h2 className="text-lg font-semibold">🎁 今晚盲盒</h2>
-                <span className="text-xs text-quiet">
-                  {blindBoxCanOpen ? "每天一次" : "明天再来"}
-                </span>
+                <h2 className="text-lg font-semibold">
+                  {homeTab === "takeout" ? "🔥 为你推荐" : homeTab === "travel" ? "✨ 精选推荐" : "🔥 猜你喜欢"}
+                </h2>
+                <button
+                  className="text-xs text-quiet"
+                  onClick={() => {
+                    setCategoryChannel(homeTab);
+                    setView("category");
+                  }}
+                >
+                  更多 ›
+                </button>
               </div>
-              <button
-                disabled={!blindBoxCanOpen || blindBoxOpening}
-                onClick={() => openBlindBox()}
-                className={`w-full rounded-[24px] p-5 text-left transition-all shadow-soft ${
-                  blindBoxCanOpen
-                    ? "bg-white active:scale-[0.98]"
-                    : "bg-white/60 opacity-60"
-                }`}
-              >
-                <div className="flex items-center gap-4">
-                  <div className={`h-20 w-20 shrink-0 rounded-[20px] flex items-center justify-center text-5xl ${
-                    blindBoxCanOpen
-                      ? "bg-primary/10"
-                      : "bg-black/[0.03]"
-                  }`}>
-                    {blindBoxCanOpen ? "🎁" : "🔒"}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-lg font-bold text-ink">神秘惊喜盲盒</div>
-                    <div className="mt-1 text-xs text-quiet">
-                      {blindBoxCanOpen ? "点我开启今日惊喜" : "明天再来开启新的惊喜"}
-                    </div>
-                    <div className="mt-2 flex items-center gap-2">
-                      <span className="inline-block rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-primary">
-                        1000+款惊喜
-                      </span>
-                      <span className="inline-block rounded-full bg-black/[0.05] px-2.5 py-0.5 text-[11px] font-medium text-quiet">
-                        {blindBoxCanOpen ? "今日可开" : "明日再来"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </button>
+              <div className="grid grid-cols-2 gap-3">
+                {products
+                  .filter((p) =>
+                    homeTab === "takeout"
+                      ? p.category === "外卖"
+                      : homeTab === "travel"
+                      ? p.category === "旅行"
+                      : p.category !== "盲盒"
+                  )
+                  .slice(
+                    homeTab === "takeout" || homeTab === "travel" ? 10 : 0,
+                    homeTab === "takeout" || homeTab === "travel" ? 20 : 10
+                  )
+                  .map((product, index) => {
+                    const isLarge = index % 5 === 0;
+                    return (
+                      <ProductCard
+                        key={product.id}
+                        product={product}
+                        onClick={() => openProduct(product)}
+                        onToggleFavorite={() => toggleFavorite(product)}
+                        isFavorite={isFavorite(product.id)}
+                      />
+                    );
+                  })}
+              </div>
             </section>
           </Screen>
         )}
@@ -1219,11 +2031,11 @@ export default function MoonCartApp() {
             {searchQuery.trim() ? (
               <div>
                 <div className="mb-3 text-sm text-quiet">
-                  搜索结果 ({fuzzySearch(products.filter((p) => p.category !== "盲盒"), searchQuery).length})
+                  搜索结果 ({fuzzySearch(products.filter((p) => channelCategories[categoryChannel].includes(p.category)), searchQuery).length})
                 </div>
-                {fuzzySearch(products.filter((p) => p.category !== "盲盒"), searchQuery).length > 0 ? (
+                {fuzzySearch(products.filter((p) => channelCategories[categoryChannel].includes(p.category)), searchQuery).length > 0 ? (
                   <div className="masonry pb-4">
-                    {fuzzySearch(products.filter((p) => p.category !== "盲盒"), searchQuery).map((product) => (
+                    {fuzzySearch(products.filter((p) => channelCategories[categoryChannel].includes(p.category)), searchQuery).map((product) => (
                       <ProductCard
                         key={product.id}
                         product={product}
@@ -1242,39 +2054,31 @@ export default function MoonCartApp() {
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-3 pt-2">
-                {[...categories.filter((c) => c !== "盲盒"), "其他"].map((category, index) => (
+                {channelCategories[categoryChannel].map((category, index) => (
                   <button
                     key={category}
-                    onClick={() =>
-                      category === "其他"
-                        ? setView("list")
-                        : openCategory(category)
-                    }
+                    onClick={() => openCategory(category, categoryChannel, "", category)}
                     className="rounded-[24px] bg-white p-5 text-left shadow-soft active:scale-[0.98]"
                   >
                     <div className="mb-8 text-3xl">
                       {
-                        category === "其他"
-                          ? "🎁"
-                          : [
-                              "🍱",
-                              "🍓",
-                              "🍫",
-                              "🧋",
-                              "🎧",
-                              "💄",
-                              "👟",
-                              "☕",
-                              "🕯",
-                              "✈️",
-                            ][index]
+                        [
+                          "🍱",
+                          "🍓",
+                          "🍫",
+                          "🧋",
+                          "🎧",
+                          "💄",
+                          "👟",
+                          "☕",
+                          "🕯",
+                          "✈️",
+                        ][categories.indexOf(category) % 10]
                       }
                     </div>
                     <div className="text-lg font-semibold">{category}</div>
                     <div className="mt-1 text-sm text-quiet">
-                      {category === "其他"
-                        ? "随便逛逛"
-                        : `约 ${pickProducts(category).length} 件快乐`}
+                      约 {pickProducts(category).length} 件快乐
                     </div>
                   </button>
                 ))}
@@ -1286,32 +2090,42 @@ export default function MoonCartApp() {
         {view === "list" && (
           <Screen key="list">
             <Header
-              title={selectedCategory ?? "随便逛逛"}
-              onBack={() =>
-                selectedCategory ? setView("category") : setView("home")
-              }
+              title={listTitle || selectedCategory || "随便逛逛"}
+              onBack={() => setView("home")}
               right={
                 <CartButton count={cartCount} onClick={() => setView("cart")} />
               }
             />
-            <div className="hide-scrollbar -mx-4 mb-4 flex gap-2 overflow-x-auto px-4">
+            <div className="hide-scrollbar -mx-4 mb-4 flex gap-2 overflow-x-auto px-4" ref={listTabScrollCallback}>
               <button
-                onClick={() => setSelectedCategory(undefined)}
-                className={`whitespace-nowrap rounded-full px-4 py-2 text-sm ${!selectedCategory ? "bg-primary text-white" : "bg-white text-ink"}`}
+                onClick={() => {
+                  setSelectedCategory(undefined);
+                  setSubKeyword("");
+                  setListTitle("全部商品");
+                }}
+                className={`whitespace-nowrap rounded-full px-4 py-2 text-sm ${!selectedCategory && !subKeyword ? "bg-primary text-white" : "bg-white text-ink"}`}
               >
                 全部
               </button>
-              {categories
-                .filter((c) => c !== "盲盒")
-                .map((category) => (
+              {subCategoriesByChannel[listChannel].map((sub) => {
+                const active =
+                  (sub.category ?? undefined) === (selectedCategory ?? undefined) &&
+                  (sub.keyword ?? "") === subKeyword;
+                return (
                   <button
-                    key={category}
-                    onClick={() => setSelectedCategory(category)}
-                    className={`whitespace-nowrap rounded-full px-4 py-2 text-sm ${selectedCategory === category ? "bg-primary text-white" : "bg-white text-ink"}`}
+                    key={sub.label}
+                    data-label={sub.label}
+                    onClick={() => {
+                      setSelectedCategory(sub.category);
+                      setSubKeyword(sub.keyword ?? "");
+                      setListTitle(sub.label);
+                    }}
+                    className={`whitespace-nowrap rounded-full px-4 py-2 text-sm ${active ? "bg-primary text-white" : "bg-white text-ink"}`}
                   >
-                    {category}
+                    {sub.label}
                   </button>
-                ))}
+                );
+              })}
             </div>
             <div className="masonry pb-4">
               {visibleProducts.map((product) => (
@@ -1359,12 +2173,133 @@ export default function MoonCartApp() {
                   value={selectedProduct.coupon}
                   tone="coral"
                 />
-                <InfoRow label="配送信息" value="今晚马上送达，实际不会发货" />
+                <InfoRow
+                  label={selectedProduct.category === "旅行" ? "出行信息" : "配送信息"}
+                  value={selectedProduct.category === "旅行" ? "出行前1天发送确认短信，虚拟预订不会实际出行" : "今晚马上送达，实际不会发货"}
+                />
               </div>
 
-              {selectedProduct.specs && selectedProduct.specs.length > 0 && (
+              {selectedProduct.category === "旅行" && (() => {
+                const title = selectedProduct.title;
+                const isHotel = /酒店|民宿|住宿|客栈|房|帐篷|营地|露营/.test(title);
+                const isRental = /租车|自驾/.test(title);
+                const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+                return (
                 <div className="mt-5">
                   <div className="mb-3 font-semibold">选择规格</div>
+                  {/* 日期选择 */}
+                  <div className="mt-3">
+                    <div className="mb-2 text-sm text-quiet">
+                      {isHotel ? "入住日期" : isRental ? "取车日期" : "出发日期"}
+                    </div>
+                    <div className={`flex ${isHotel || isRental ? "gap-3" : ""}`}>
+                      <input
+                        type="date"
+                        value={selectedSpecs[isHotel ? "入住日期" : isRental ? "取车日期" : "出发日期"] ?? ""}
+                        min={tomorrow}
+                        onChange={(e) =>
+                          setSelectedSpecs((prev) => ({
+                            ...prev,
+                            [isHotel ? "入住日期" : isRental ? "取车日期" : "出发日期"]: e.target.value,
+                          }))
+                        }
+                        className="flex-1 rounded-2xl border-0 bg-black/[0.03] px-4 py-3 text-sm outline-none focus:bg-black/[0.05]"
+                      />
+                      {(isHotel || isRental) && (
+                        <>
+                          <span className="self-center text-quiet">—</span>
+                          <input
+                            type="date"
+                            value={selectedSpecs[isHotel ? "退房日期" : "还车日期"] ?? ""}
+                            min={selectedSpecs[isHotel ? "入住日期" : "取车日期"] ?? tomorrow}
+                            onChange={(e) =>
+                              setSelectedSpecs((prev) => ({
+                                ...prev,
+                                [isHotel ? "退房日期" : "还车日期"]: e.target.value,
+                              }))
+                            }
+                            className="flex-1 rounded-2xl border-0 bg-black/[0.03] px-4 py-3 text-sm outline-none focus:bg-black/[0.05]"
+                          />
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  {/* 人数/房间选择 */}
+                  <div className="mt-3">
+                    <div className="mb-2 text-sm text-quiet">
+                      {isHotel ? "房间数" : "人数"}
+                    </div>
+                    {isHotel ? (
+                      <div className="flex flex-wrap gap-2">
+                        {["1间", "2间", "3间", "4间", "5间及以上"].map((opt) => {
+                          const isSelected = selectedSpecs["房间数"] === opt;
+                          return (
+                            <button
+                              key={opt}
+                              onClick={() => setSelectedSpecs((prev) => ({ ...prev, 房间数: opt }))}
+                              className={`rounded-full px-4 py-2 text-sm transition-all ${
+                                isSelected ? "bg-primary text-white" : "bg-black/[0.03] text-ink active:bg-black/5"
+                              }`}
+                            >
+                              {opt}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="flex gap-3">
+                        <div className="flex-1">
+                          <div className="mb-1.5 text-xs text-quiet">成人</div>
+                          <div className="flex items-center gap-2 rounded-2xl bg-black/[0.03] px-3 py-2">
+                            <button
+                              className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-lg shadow-soft active:scale-90"
+                              onClick={() => setSelectedSpecs((prev) => ({ ...prev, 成人: String(Math.max(1, Number(prev.成人 ?? "1") - 1)) }))}
+                            >
+                              <Minus size={14} />
+                            </button>
+                            <span className="flex-1 text-center text-sm font-semibold">
+                              {selectedSpecs.成人 ?? "1"}
+                            </span>
+                            <button
+                              className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-lg shadow-soft active:scale-90"
+                              onClick={() => setSelectedSpecs((prev) => ({ ...prev, 成人: String(Number(prev.成人 ?? "1") + 1) }))}
+                            >
+                              <Plus size={14} />
+                            </button>
+                          </div>
+                        </div>
+                        <div className="flex-1">
+                          <div className="mb-1.5 text-xs text-quiet">儿童</div>
+                          <div className="flex items-center gap-2 rounded-2xl bg-black/[0.03] px-3 py-2">
+                            <button
+                              className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-lg shadow-soft active:scale-90"
+                              onClick={() => setSelectedSpecs((prev) => ({ ...prev, 儿童: String(Math.max(0, Number(prev.儿童 ?? "0") - 1)) }))}
+                            >
+                              <Minus size={14} />
+                            </button>
+                            <span className="flex-1 text-center text-sm font-semibold">
+                              {selectedSpecs.儿童 ?? "0"}
+                            </span>
+                            <button
+                              className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-lg shadow-soft active:scale-90"
+                              onClick={() => setSelectedSpecs((prev) => ({ ...prev, 儿童: String(Number(prev.儿童 ?? "0") + 1) }))}
+                            >
+                              <Plus size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                );
+              })()}
+
+              {selectedProduct.specs && selectedProduct.specs.length > 0 && (
+                <div className={selectedProduct.category === "旅行" ? "" : "mt-5"}>
+                  {selectedProduct.category !== "旅行" && (
+                    <div className="mb-3 font-semibold">选择规格</div>
+                  )}
                   {selectedProduct.specs.map((spec) => (
                     <div key={spec.label} className="mt-3">
                       <div className="mb-2 text-sm text-quiet">{spec.label}</div>
@@ -1887,7 +2822,9 @@ export default function MoonCartApp() {
                     </button>
                   </div>
                   <div className="hide-scrollbar flex gap-3 overflow-x-auto">
-                    {activeDeliveries.map((order, index) => (
+                    {activeDeliveries.map((order, index) => {
+                      const steps = getDeliverySteps(order.channel);
+                      return (
                       <button
                         key={order.id}
                         className="min-w-[200px] flex-1 rounded-[14px] bg-black/[0.03] p-3 text-left"
@@ -1898,7 +2835,7 @@ export default function MoonCartApp() {
                             订单 {index + 1}
                           </span>
                           <span className="text-xs font-medium text-primary">
-                            {Math.round((order.stepIndex + 1) / deliverySteps.length * 100)}%
+                            {Math.round((order.stepIndex + 1) / steps.length * 100)}%
                           </span>
                         </div>
                         <div className="mt-2 text-sm font-medium truncate">
@@ -1907,14 +2844,15 @@ export default function MoonCartApp() {
                         <div className="mt-2 h-1 rounded-full bg-black/5 overflow-hidden">
                           <div
                             className="h-full rounded-full bg-primary transition-all"
-                            style={{ width: `${((order.stepIndex + 1) / deliverySteps.length) * 100}%` }}
+                            style={{ width: `${((order.stepIndex + 1) / steps.length) * 100}%` }}
                           />
                         </div>
                         <div className="mt-2 text-xs text-quiet">
-                          {deliverySteps[order.stepIndex]}
+                          {steps[order.stepIndex]}
                         </div>
                       </button>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -2109,6 +3047,539 @@ export default function MoonCartApp() {
             </section>
           </Screen>
         )}
+
+        {view === "flight" && (
+          <Screen key="flight">
+            <Header title="机票预订" onBack={() => setView("home")} />
+
+            <div className="mt-4 mx-4 rounded-[28px] bg-white p-5 shadow-soft">
+              <div className="flex rounded-[20px] overflow-hidden bg-black/[0.03]">
+                <button
+                  onClick={() => setFlightTripType("oneway")}
+                  className={`flex-1 py-3 text-sm font-medium transition-colors ${
+                    flightTripType === "oneway" ? "bg-white text-primary" : "text-quiet"
+                  }`}
+                >
+                  单程
+                </button>
+                <button
+                  onClick={() => setFlightTripType("roundtrip")}
+                  className={`flex-1 py-3 text-sm font-medium transition-colors ${
+                    flightTripType === "roundtrip" ? "bg-white text-primary" : "text-quiet"
+                  }`}
+                >
+                  往返
+                </button>
+              </div>
+
+              <div className="mt-5 flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => { setFlightCityPicker("from"); setFlightCityKeyword(""); }}
+                  className="flex-1 text-left"
+                >
+                  <div className="mb-1 text-xs text-quiet">出发地</div>
+                  <div className="flex items-center gap-2 rounded-[16px] bg-black/[0.03] px-4 py-3 active:scale-[0.98] transition-transform">
+                    <span className="text-lg">📍</span>
+                    <span className="font-semibold">{flightFrom}</span>
+                    <svg className="ml-auto h-5 w-5 text-quiet" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </button>
+                <button
+                  onClick={() => {
+                    const temp = flightFrom;
+                    setFlightFrom(flightTo);
+                    setFlightTo(temp);
+                  }}
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-white shadow-soft active:scale-90 transition-transform"
+                >
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 11l5-5m0 0l5 5m-5-5v12" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setFlightCityPicker("to"); setFlightCityKeyword(""); }}
+                  className="flex-1 text-left"
+                >
+                  <div className="mb-1 text-xs text-quiet">目的地</div>
+                  <div className="flex items-center gap-2 rounded-[16px] bg-black/[0.03] px-4 py-3 active:scale-[0.98] transition-transform">
+                    <span className="text-lg">📍</span>
+                    <span className="font-semibold">{flightTo}</span>
+                    <svg className="ml-auto h-5 w-5 text-quiet" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </button>
+              </div>
+
+              <div className="mt-4 flex items-center gap-3">
+                <div className="flex-1">
+                  <div className="mb-1 text-xs text-quiet">出发日期</div>
+                  <input
+                    type="date"
+                    value={flightDate}
+                    min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
+                    onChange={(e) => setFlightDate(e.target.value)}
+                    className="w-full rounded-[16px] bg-black/[0.03] px-4 py-3 text-[15px] font-semibold text-[#1c1c1e] outline-none cursor-pointer"
+                    style={{ WebkitAppearance: "none", appearance: "none" }}
+                  />
+                </div>
+                {flightTripType === "roundtrip" && (
+                  <div className="flex-1">
+                    <div className="mb-1 text-xs text-quiet">返程日期</div>
+                    <input
+                      type="date"
+                      value={flightReturnDate}
+                      min={flightDate || new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
+                      onChange={(e) => setFlightReturnDate(e.target.value)}
+                      className="w-full rounded-[16px] bg-black/[0.03] px-4 py-3 text-[15px] font-semibold text-[#1c1c1e] outline-none cursor-pointer"
+                      style={{ WebkitAppearance: "none", appearance: "none" }}
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 rounded-full bg-black/[0.03] px-4 py-2">
+                    <button
+                      onClick={() => setFlightAdults(Math.max(1, flightAdults - 1))}
+                      className="flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-sm"
+                    >
+                      <Minus size={12} />
+                    </button>
+                    <span className="text-sm font-semibold">{flightAdults}成人</span>
+                    <button
+                      onClick={() => setFlightAdults(Math.min(9, flightAdults + 1))}
+                      className="flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-sm"
+                    >
+                      <Plus size={12} />
+                    </button>
+                  </div>
+                  {flightChildren > 0 && (
+                    <div className="flex items-center gap-2 rounded-full bg-black/[0.03] px-4 py-2">
+                      <button
+                        onClick={() => setFlightChildren(Math.max(0, flightChildren - 1))}
+                        className="flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-sm"
+                      >
+                        <Minus size={12} />
+                      </button>
+                      <span className="text-sm font-semibold">{flightChildren}儿童</span>
+                      <button
+                        onClick={() => setFlightChildren(Math.min(5, flightChildren + 1))}
+                        className="flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-sm"
+                      >
+                        <Plus size={12} />
+                      </button>
+                    </div>
+                  )}
+                  <button
+                    onClick={() => setFlightChildren(Math.min(5, flightChildren + 1))}
+                    className="text-xs text-primary"
+                  >
+                    +儿童
+                  </button>
+                </div>
+                <div className="flex items-center gap-2">
+                  {([
+                    { key: "economy", label: "经济舱" },
+                    { key: "business", label: "公务舱" },
+                    { key: "first", label: "头等舱" },
+                  ] as const).map((c) => (
+                    <button
+                      key={c.key}
+                      onClick={() => setFlightCabin(c.key)}
+                      className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                        flightCabin === c.key ? "bg-primary/10 text-primary" : "bg-black/[0.03] text-quiet"
+                      }`}
+                    >
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                disabled={!flightDate || flightFrom === flightTo || flightSearching}
+                className="mt-6 w-full rounded-full py-4 text-base font-semibold text-white shadow-lg active:scale-[0.98] transition-transform disabled:opacity-50 disabled:active:scale-100"
+                style={{ background: "linear-gradient(90deg, #FF5000 0%, #FF8A00 100%)", boxShadow: "0 8px 20px rgba(255,80,0,0.35)" }}
+                onClick={runFlightSearch}
+              >
+                {flightSearching ? "搜索中..." : !flightDate ? "请选择日期" : "搜索机票"}
+              </button>
+              {flightDate && flightFrom === flightTo && (
+                <p className="mt-2 text-center text-xs text-red-500">出发地与目的地不能相同</p>
+              )}
+            </div>
+
+            {flightSearching && (
+              <div className="mt-4 mx-4 rounded-[20px] bg-white p-8 text-center shadow-soft">
+                <div className="text-4xl animate-bounce">🛫</div>
+                <p className="mt-3 text-sm text-quiet">正在查询 {flightFrom} → {flightTo} 航班...</p>
+              </div>
+            )}
+
+            {flightResults && flightResults.length > 0 && (
+              <div className="mt-4 mx-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <span className="font-semibold">{flightFrom} → {flightTo}</span>
+                    <span className="ml-2 text-xs text-quiet">{flightDate} · 共 {flightResults.length} 个航班</span>
+                  </div>
+                  <button
+                    onClick={() => { setFlightResults(null); }}
+                    className="text-xs text-primary"
+                  >
+                    重新搜索
+                  </button>
+                </div>
+                <div className="flex gap-2 mb-3">
+                  {([
+                    { key: "price", label: "价格低→高" },
+                    { key: "time", label: "时间早→晚" },
+                    { key: "duration", label: "时长短→长" },
+                  ] as const).map((s) => (
+                    <button
+                      key={s.key}
+                      onClick={() => setFlightSortBy(s.key)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                        flightSortBy === s.key ? "bg-primary text-white" : "bg-white text-quiet shadow-soft"
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="space-y-3">
+                  {sortedFlightResults.map((flight) => {
+                    const durH = Math.floor(flight.durationMin / 60);
+                    const durM = flight.durationMin % 60;
+                    const cabinLabel = flight.cabin === "economy" ? "经济舱" : flight.cabin === "business" ? "公务舱" : "头等舱";
+                    return (
+                      <button
+                        key={flight.id}
+                        onClick={() => {
+                          setSelectedFlight(flight);
+                          setFlightBaggage("none");
+                          setView("flightBooking");
+                        }}
+                        className="w-full rounded-[20px] bg-white p-4 shadow-soft active:scale-[0.98] transition-transform text-left"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className="flex h-9 w-9 items-center justify-center rounded-full text-base"
+                              style={{ backgroundColor: `${flight.color}15` }}
+                            >
+                              {flight.logo}
+                            </span>
+                            <div>
+                              <div className="text-[13px] font-semibold text-[#1c1c1e]">{flight.airline}</div>
+                              <div className="text-[11px] text-quiet">{flight.flightNo} · {flight.aircraft}</div>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-lg font-bold" style={{ color: "#FF5000" }}>¥{flight.price}</div>
+                            <div className="text-[11px] text-quiet">{cabinLabel} · {flight.onTimeRate}%准点</div>
+                          </div>
+                        </div>
+                        <div className="mt-3 flex items-center justify-between">
+                          <div className="text-center">
+                            <div className="text-base font-semibold text-[#1c1c1e]">{flight.departTime}</div>
+                            <div className="text-[11px] text-quiet">{flight.departAirport}</div>
+                          </div>
+                          <div className="flex-1 mx-3 relative">
+                            <div className="h-[1px] bg-black/10 w-full"></div>
+                            <div className="absolute left-1/2 -translate-x-1/2 -top-[7px] bg-white px-1.5 text-[10px] text-quiet whitespace-nowrap">
+                              {durH}h{durM}m
+                            </div>
+                            <div className="absolute -left-1 -top-[3px] h-[7px] w-[7px] rounded-full bg-black/20"></div>
+                            <div className="absolute -right-1 -top-[3px] h-[7px] w-[7px] rounded-full bg-black/20"></div>
+                            <div className="mt-2 text-center text-[10px]">✈️</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-base font-semibold text-[#1c1c1e]">{flight.arriveTime}</div>
+                            <div className="text-[11px] text-quiet">{flight.arriveAirport}</div>
+                          </div>
+                        </div>
+                        {flight.seatsLeft > 0 && flight.seatsLeft <= 5 && (
+                          <div className="mt-2 text-[11px] text-[#FF5000]">仅剩 {flight.seatsLeft} 座 · 涨价中</div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {!flightResults && !flightSearching && (
+              <div className="mt-4 mx-4">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="font-semibold">热门航线</span>
+                  <span className="text-xs text-quiet">更多</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { from: "北京", to: "上海", price: "¥680" },
+                    { from: "上海", to: "广州", price: "¥720" },
+                    { from: "广州", to: "成都", price: "¥850" },
+                    { from: "成都", to: "杭州", price: "¥690" },
+                    { from: "杭州", to: "深圳", price: "¥780" },
+                    { from: "深圳", to: "北京", price: "¥820" },
+                  ].map((route) => (
+                    <button
+                      key={`${route.from}-${route.to}`}
+                      onClick={() => {
+                        setFlightFrom(route.from);
+                        setFlightTo(route.to);
+                        setFlightResults(null);
+                      }}
+                      className="flex items-center justify-between rounded-[20px] bg-white p-4 shadow-soft active:scale-95 transition-transform"
+                    >
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold">{route.from}</span>
+                          <span className="text-quiet">→</span>
+                          <span className="font-semibold">{route.to}</span>
+                        </div>
+                        <div className="mt-1 text-xs text-quiet">今日最低</div>
+                      </div>
+                      <span className="text-primary font-semibold">{route.price}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </Screen>
+        )}
+
+        {view === "flightBooking" && selectedFlight && (() => {
+          const flight = selectedFlight;
+          const durH = Math.floor(flight.durationMin / 60);
+          const durM = flight.durationMin % 60;
+          const cabinLabel = flight.cabin === "economy" ? "经济舱" : flight.cabin === "business" ? "公务舱" : "头等舱";
+          const pax = flightAdults + flightChildren;
+          const baggageOptions = [
+            { key: "none" as const, label: "无免费行李", desc: "仅随身小包 7kg", price: 0 },
+            { key: "20kg" as const, label: "20kg 托运", desc: "标准托运行李", price: 80 },
+            { key: "40kg" as const, label: "40kg 托运", desc: "超大托运行李", price: 180 },
+          ];
+          const flightCartItem: CartItem = {
+            id: Number(flight.id.replace(/\D/g, "")) || Date.now(),
+            title: `${flightFrom}→${flightTo} ${flight.airline} ${flight.flightNo}`,
+            price: flight.price,
+            finalPrice: flightTotalPrice,
+            quantity: pax,
+            image: flight.logo,
+            emoji: flight.logo,
+            palette: flight.color,
+            category: "旅行",
+            sales: `${flight.onTimeRate}%准点`,
+            coupon: `${flightDate} ${flight.departTime} 起飞`,
+            tags: [cabinLabel, flight.aircraft, `${durH}h${durM}m`],
+            intro: `${flight.departAirport} → ${flight.arriveAirport}`,
+            selectedSpecs: {
+              航班: flight.flightNo,
+              舱型: cabinLabel,
+              日期: flightDate,
+              行李: flightBaggage === "none" ? "无托运" : `${flightBaggage} +¥${flightBaggagePrice}`,
+              人数: `${flightAdults}成人${flightChildren > 0 ? `+${flightChildren}儿童` : ""}`,
+            },
+          };
+          return (
+            <Screen key="flightBooking">
+              <Header title="航班预订" onBack={() => setView("flight")} />
+
+              {/* 航班信息卡 */}
+              <div className="mt-4 mx-4 rounded-[24px] bg-white p-5 shadow-soft">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="flex h-10 w-10 items-center justify-center rounded-full text-lg"
+                      style={{ backgroundColor: `${flight.color}15` }}
+                    >
+                      {flight.logo}
+                    </span>
+                    <div>
+                      <div className="text-sm font-semibold text-[#1c1c1e]">{flight.airline}</div>
+                      <div className="text-xs text-quiet">{flight.flightNo} · {flight.aircraft}</div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xs text-quiet">{flightDate}</div>
+                    <div className="text-xs text-quiet">{cabinLabel}</div>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex items-center justify-between">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-[#1c1c1e]">{flight.departTime}</div>
+                    <div className="text-xs text-quiet mt-0.5">{flightFrom}</div>
+                    <div className="text-[10px] text-quiet">{flight.departAirport}</div>
+                  </div>
+                  <div className="flex-1 mx-3 relative">
+                    <div className="h-[1px] bg-black/10 w-full"></div>
+                    <div className="absolute left-1/2 -translate-x-1/2 -top-[7px] bg-white px-1.5 text-[10px] text-quiet whitespace-nowrap">
+                      {durH}h{durM}m
+                    </div>
+                    <div className="absolute -left-1 -top-[3px] h-[7px] w-[7px] rounded-full bg-black/20"></div>
+                    <div className="absolute -right-1 -top-[3px] h-[7px] w-[7px] rounded-full bg-black/20"></div>
+                    <div className="mt-2 text-center text-xs">✈️</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-[#1c1c1e]">{flight.arriveTime}</div>
+                    <div className="text-xs text-quiet mt-0.5">{flightTo}</div>
+                    <div className="text-[10px] text-quiet">{flight.arriveAirport}</div>
+                  </div>
+                </div>
+
+                <div className="mt-3 pt-3 border-t border-black/[0.06] flex items-center justify-between text-xs text-quiet">
+                  <span>准点率 {flight.onTimeRate}%</span>
+                  {flight.seatsLeft > 0 && flight.seatsLeft <= 5 ? (
+                    <span className="text-[#FF5000]">仅剩 {flight.seatsLeft} 座</span>
+                  ) : (
+                    <span>余票充足</span>
+                  )}
+                </div>
+              </div>
+
+              {/* 行李额选择 */}
+              <div className="mt-4 mx-4">
+                <div className="text-sm font-semibold mb-3 text-[#1c1c1e]">行李额</div>
+                <div className="space-y-2">
+                  {baggageOptions.map((opt) => {
+                    const selected = flightBaggage === opt.key;
+                    return (
+                      <button
+                        key={opt.key}
+                        onClick={() => setFlightBaggage(opt.key)}
+                        className={`w-full flex items-center justify-between p-4 rounded-[16px] transition-all active:scale-[0.98] ${
+                          selected ? "bg-white shadow-soft ring-2 ring-[#FF5000]" : "bg-white shadow-soft"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`flex h-5 w-5 items-center justify-center rounded-full border-2 ${
+                            selected ? "border-[#FF5000] bg-[#FF5000]" : "border-black/20"
+                          }`}>
+                            {selected && (
+                              <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </div>
+                          <div className="text-left">
+                            <div className="text-sm font-medium text-[#1c1c1e]">{opt.label}</div>
+                            <div className="text-xs text-quiet mt-0.5">{opt.desc}</div>
+                          </div>
+                        </div>
+                        <div className={`text-sm font-semibold ${opt.price === 0 ? "text-quiet" : "text-[#FF5000]"}`}>
+                          {opt.price === 0 ? "免费" : `+¥${opt.price}`}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 乘机人 */}
+              <div className="mt-4 mx-4">
+                <div className="text-sm font-semibold mb-3 text-[#1c1c1e]">乘机人</div>
+                <div className="rounded-[20px] bg-white p-4 shadow-soft">
+                  <div className="flex items-center justify-between py-2 border-b border-black/[0.06]">
+                    <span className="text-sm text-quiet">成人</span>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => setFlightAdults(Math.max(1, flightAdults - 1))}
+                        className="flex h-7 w-7 items-center justify-center rounded-full bg-black/[0.05]"
+                      >
+                        <Minus size={14} />
+                      </button>
+                      <span className="w-6 text-center text-sm font-semibold">{flightAdults}</span>
+                      <button
+                        onClick={() => setFlightAdults(Math.min(9, flightAdults + 1))}
+                        className="flex h-7 w-7 items-center justify-center rounded-full bg-black/[0.05]"
+                      >
+                        <Plus size={14} />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between py-2">
+                    <span className="text-sm text-quiet">儿童</span>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => setFlightChildren(Math.max(0, flightChildren - 1))}
+                        className="flex h-7 w-7 items-center justify-center rounded-full bg-black/[0.05]"
+                      >
+                        <Minus size={14} />
+                      </button>
+                      <span className="w-6 text-center text-sm font-semibold">{flightChildren}</span>
+                      <button
+                        onClick={() => setFlightChildren(Math.min(5, flightChildren + 1))}
+                        className="flex h-7 w-7 items-center justify-center rounded-full bg-black/[0.05]"
+                      >
+                        <Plus size={14} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 价格明细 */}
+              <div className="mt-4 mx-4 rounded-[20px] bg-white p-5 shadow-soft">
+                <div className="text-sm font-semibold mb-3 text-[#1c1c1e]">价格明细</div>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-quiet">机票单价</span>
+                    <span>¥{flight.price} × {pax}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-quiet">机票小计</span>
+                    <span>¥{flight.price * pax}</span>
+                  </div>
+                  {flightBaggagePrice > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-quiet">行李额</span>
+                      <span>¥{flightBaggagePrice} × {pax}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span className="text-quiet">机建燃油</span>
+                    <span className="text-quiet">已含</span>
+                  </div>
+                  <div className="pt-2 mt-2 border-t border-black/[0.06] flex items-baseline justify-between">
+                    <span className="text-sm text-quiet">合计</span>
+                    <span className="text-2xl font-bold" style={{ color: "#FF5000" }}>¥{flightTotalPrice}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 底部下单栏 */}
+              <div className="h-24"></div>
+              <div className="fixed bottom-0 left-0 right-0 z-30 bg-white/90 backdrop-blur-md border-t border-black/[0.06]">
+                <div className="mx-auto max-w-[460px] px-4 py-3 flex items-center gap-3">
+                  <div className="flex-1">
+                    <div className="text-xs text-quiet">应付</div>
+                    <div className="text-xl font-bold" style={{ color: "#FF5000" }}>¥{flightTotalPrice}</div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      startOrder(flightTotalPrice, [flightCartItem]);
+                      setView("delivery");
+                    }}
+                    className="flex-1 rounded-full py-3.5 text-base font-semibold text-white active:scale-[0.98] transition-transform"
+                    style={{ background: "linear-gradient(90deg, #FF5000 0%, #FF8A00 100%)" }}
+                  >
+                    立即下单
+                  </button>
+                </div>
+              </div>
+            </Screen>
+          );
+        })()}
       </AnimatePresence>
 
       {(blindBoxOpening || blindBoxProduct) && (
@@ -2386,6 +3857,131 @@ export default function MoonCartApp() {
         </div>,
         document.body
       )}
+
+      {flightCityPicker && createPortal(
+        <div
+          className="fixed inset-0 z-[100] flex items-end justify-center bg-black/40 backdrop-blur-sm"
+          onClick={() => setFlightCityPicker(null)}
+          style={{ overscrollBehavior: "contain", touchAction: "none" }}
+        >
+          <div
+            className="w-full max-w-[460px] rounded-t-[20px] bg-[#f2f2f7] px-3 pb-6 pt-2 max-h-[80vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+            style={{ overscrollBehavior: "contain" }}
+          >
+            <div className="mx-auto mb-2 h-1 w-9 rounded-full bg-black/15" />
+            <div className="text-center text-[17px] font-semibold text-[#1c1c1e] mb-3">
+              选择{flightCityPicker === "from" ? "出发地" : "目的地"}
+            </div>
+            <div className="flex rounded-[10px] bg-black/[0.06] p-0.5 mb-3">
+              <button
+                onClick={() => setFlightCityTab("domestic")}
+                className={`flex-1 py-2 text-[14px] font-medium rounded-[8px] transition-all ${
+                  flightCityTab === "domestic" ? "bg-white text-primary shadow-sm" : "text-quiet"
+                }`}
+              >
+                国内
+              </button>
+              <button
+                onClick={() => setFlightCityTab("international")}
+                className={`flex-1 py-2 text-[14px] font-medium rounded-[8px] transition-all ${
+                  flightCityTab === "international" ? "bg-white text-primary shadow-sm" : "text-quiet"
+                }`}
+              >
+                国际/港澳台
+              </button>
+            </div>
+            <input
+              type="text"
+              value={flightCityKeyword}
+              onChange={(e) => setFlightCityKeyword(e.target.value)}
+              placeholder="中文/拼音/三字码搜索"
+              className="w-full rounded-[10px] bg-white px-3 py-2.5 text-[14px] mb-3 outline-none"
+            />
+            <div className="rounded-[12px] bg-white overflow-y-auto flex-1">
+              {filteredFlightCities.length === 0 ? (
+                <div className="px-4 py-8 text-center text-sm text-quiet">未找到相关城市</div>
+              ) : groupedFlightCities ? (
+                Object.entries(groupedFlightCities).map(([region, cities]) => (
+                  <div key={region}>
+                    <div className="sticky top-0 bg-[#f2f2f7] px-4 py-1.5 text-xs font-semibold text-quiet border-b border-black/[0.04]">
+                      {region}（{cities.length}）
+                    </div>
+                    {cities.map((c) => {
+                      const current = flightCityPicker === "from" ? flightFrom : flightTo;
+                      const selected = current === c.name;
+                      return (
+                        <button
+                          key={`${c.code}-${c.name}`}
+                          onClick={() => {
+                            if (flightCityPicker === "from") {
+                              setFlightFrom(c.name);
+                              if (c.name === flightTo) setFlightTo(current);
+                            } else {
+                              setFlightTo(c.name);
+                              if (c.name === flightFrom) setFlightFrom(current);
+                            }
+                            setFlightCityPicker(null);
+                          }}
+                          className="w-full flex items-center justify-between px-4 py-3 text-[15px] active:bg-black/5 border-b border-black/[0.04] last:border-b-0"
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="text-[#1c1c1e] font-medium">{c.name}</span>
+                            <span className="text-xs text-quiet">{c.code}</span>
+                          </div>
+                          {selected && (
+                            <svg className="h-5 w-5" style={{ color: "#FF5000" }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))
+              ) : (
+                filteredFlightCities.map((c) => {
+                  const current = flightCityPicker === "from" ? flightFrom : flightTo;
+                  const selected = current === c.name;
+                  return (
+                    <button
+                      key={`${c.code}-${c.name}`}
+                      onClick={() => {
+                        if (flightCityPicker === "from") {
+                          setFlightFrom(c.name);
+                          if (c.name === flightTo) setFlightTo(current);
+                        } else {
+                          setFlightTo(c.name);
+                          if (c.name === flightFrom) setFlightFrom(current);
+                        }
+                        setFlightCityPicker(null);
+                      }}
+                      className="w-full flex items-center justify-between px-4 py-3 text-[15px] active:bg-black/5 border-b border-black/[0.04] last:border-b-0"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="text-[#1c1c1e] font-medium">{c.name}</span>
+                        <span className="text-xs text-quiet">{c.code}</span>
+                      </div>
+                      {selected && (
+                        <svg className="h-5 w-5" style={{ color: "#FF5000" }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </button>
+                  );
+                })
+              )}
+            </div>
+            <button
+              onClick={() => setFlightCityPicker(null)}
+              className="mt-2 w-full rounded-[12px] bg-white py-3 text-[15px] font-medium text-[#1c1c1e] active:bg-black/5"
+            >
+              取消
+            </button>
+          </div>
+        </div>,
+        document.body
+      )}
     </main>
   );
 }
@@ -2510,8 +4106,9 @@ function OrderPanel({
   if (!open || !orders.length) return null;
   const safeIndex = Math.min(activeIndex, orders.length - 1);
   const selected = orders[safeIndex];
+  const selectedSteps = getDeliverySteps(selected.channel);
   const progress = Math.round(
-    ((selected.stepIndex + 1) / deliverySteps.length) * 100,
+    ((selected.stepIndex + 1) / selectedSteps.length) * 100,
   );
 
   return (
@@ -2529,7 +4126,7 @@ function OrderPanel({
                 {orders.length > 1 ? `配送中 · 共 ${orders.length} 单` : "订单生成成功"}
               </div>
               <div className="mt-1 text-xl font-semibold">
-                {deliverySteps[selected.stepIndex]}
+                {selectedSteps[selected.stepIndex]}
               </div>
             </div>
             <button
@@ -2562,7 +4159,7 @@ function OrderPanel({
         <div className="p-4">
           <div className="mb-3 flex items-center justify-between text-sm">
             <span className="text-quiet">
-              订单 {safeIndex + 1} · 虚拟配送进度
+              订单 {safeIndex + 1} · {selected.channel === "travel" ? "虚拟出行进度" : "虚拟配送进度"}
             </span>
             <span className="font-semibold text-price">{progress}%</span>
           </div>
@@ -2604,12 +4201,14 @@ function DeliveryTicker({
 }) {
   if (!orders.length) return null;
   const latest = orders[orders.length - 1];
+  const latestSteps = getDeliverySteps(latest.channel);
   const progress = Math.round(
-    ((latest.stepIndex + 1) / deliverySteps.length) * 100,
+    ((latest.stepIndex + 1) / latestSteps.length) * 100,
   );
   const progressPercent = Math.min(92, 8 + latest.stepIndex * 7.2);
   const firstItem = latest.items[0];
   const extraCount = latest.items.length;
+  const isTravel = latest.channel === "travel";
 
   return (
     <div className="sticky top-0 z-40 -mx-4 mb-3 bg-paper/95 px-4 pb-2 pt-1 backdrop-blur">
@@ -2647,17 +4246,17 @@ function DeliveryTicker({
               animate={{ left: `calc(${progressPercent}% - 10px)` }}
               transition={{ type: "spring", stiffness: 70, damping: 16 }}
             >
-              🏍️
+              {isTravel ? "✈️" : "🏍️"}
             </motion.span>
           </div>
           <div className="mt-0.5 flex items-center justify-between text-[10px] text-quiet">
-            <span>商家</span>
+            <span>{isTravel ? "出发地" : "商家"}</span>
             <span className="truncate">
               {orders.length > 1
-                ? `${orders.length} 单配送中 · ${deliverySteps[latest.stepIndex]}`
-                : deliverySteps[latest.stepIndex]}
+                ? `${orders.length} 单配送中 · ${latestSteps[latest.stepIndex]}`
+                : latestSteps[latest.stepIndex]}
             </span>
-            <span>🏠</span>
+            <span>{isTravel ? "🏝️" : "🏠"}</span>
           </div>
         </div>
       </button>
@@ -2674,10 +4273,12 @@ function DeliveryCard({
   index: number;
   onAccelerate: () => void;
 }) {
-  const progress = Math.round(((order.stepIndex + 1) / deliverySteps.length) * 100);
+  const steps = getDeliverySteps(order.channel);
+  const progress = Math.round(((order.stepIndex + 1) / steps.length) * 100);
   const firstItem = order.items[0];
   const extraCount = order.items.length;
   const progressPercent = Math.min(92, 8 + order.stepIndex * 7.2);
+  const isTravel = order.channel === "travel";
 
   return (
     <section className="overflow-hidden rounded-[28px] bg-white shadow-soft">
@@ -2709,26 +4310,28 @@ function DeliveryCard({
               animate={{ left: `calc(${progressPercent}% - 24px)` }}
               transition={{ type: "spring", stiffness: 70, damping: 16 }}
             >
-              🏍️
+              {isTravel ? "✈️" : "🏍️"}
             </motion.div>
           </div>
           <div className="mt-3 flex items-center justify-between text-xs text-quiet">
-            <span>商家</span>
-            <span>{deliverySteps[order.stepIndex]}</span>
-            <span>🏠 收货地址</span>
+            <span>{isTravel ? "出发地" : "商家"}</span>
+            <span>{steps[order.stepIndex]}</span>
+            <span>{isTravel ? "目的地" : "🏠 收货地址"}</span>
           </div>
         </div>
       </div>
       <div className="p-5">
         <h2 className="text-2xl font-semibold">
-          {deliverySteps[order.stepIndex]}
+          {steps[order.stepIndex]}
         </h2>
         <div className="mt-2 text-sm text-quiet">
-          骑手正在飞速赶来，预计今晚马上送达～
+          {isTravel
+            ? "行程正在安排中，预计马上出发～"
+            : "骑手正在飞速赶来，预计今晚马上送达～"}
         </div>
         <div className="mt-5 flex items-center justify-between">
           <div>
-            <div className="text-xs text-quiet">本单虚拟消费</div>
+            <div className="text-xs text-quiet">{isTravel ? "本单预订费用" : "本单虚拟消费"}</div>
             <div className="text-xl font-semibold text-price">
               {money(order.amount)}
             </div>
@@ -2737,7 +4340,7 @@ function DeliveryCard({
             className="rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white shadow-soft"
             onClick={onAccelerate}
           >
-            加速配送
+            {isTravel ? "加速出行" : "加速配送"}
           </button>
         </div>
       </div>
