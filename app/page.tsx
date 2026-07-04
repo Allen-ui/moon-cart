@@ -5,56 +5,111 @@ import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
+  Baby,
+  BadgeCheck,
+  Beef,
+  BriefcaseBusiness,
+  Car,
+  ChevronDown,
+  ChevronRight,
+  Coffee,
+  Dumbbell,
+  Flower2,
+  Gem,
+  Gift,
   Heart,
   Home,
+  Hotel,
+  Laptop,
+  Luggage,
   Minus,
   Plus,
   Search,
+  Shirt,
   ShoppingBag,
+  ShoppingCart,
+  Smartphone,
+  Sparkles,
+  Star,
+  Store,
+  Ticket,
   Trash2,
+  Utensils,
   UserRound,
+  WashingMachine,
   X,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import {
   categories,
   pickProducts,
   products,
   type Product,
 } from "@/data/products";
+import type { View } from "@/types";
+import { money, shortMoney, formatPurchaseDate } from "@/utils/format";
+import { getMemberLevel, getNextLevel, MEMBER_LEVELS, type MemberLevel } from "@/utils/member";
+import { fuzzySearch } from "@/utils/search";
+import {
+  getDeliverySteps,
+  calculateSpecPrice,
+  getChannelFromItems,
+  type DeliveryOrder,
+} from "@/utils/order";
+
+import { CriticalStyles } from "@/components/common/CriticalStyles";
+import { Screen } from "@/components/common/Screen";
+import { Header } from "@/components/common/Header";
+import { TabBar } from "@/components/common/TabBar";
+import { IconButton } from "@/components/common/IconButton";
+import { StatCard } from "@/components/common/StatCard";
+import { EmptyCart } from "@/components/common/EmptyCart";
+import { Centered } from "@/components/common/Centered";
+import { InfoRow } from "@/components/common/InfoRow";
+
+import { ProductVisual } from "@/components/product/ProductVisual";
+import { ProductCard } from "@/components/product/ProductCard";
+import { CartButton } from "@/components/product/CartButton";
+
+import { BoughtItems } from "@/components/order/BoughtItems";
+import { OrderCard } from "@/components/order/OrderCard";
+import { OrderPanel } from "@/components/order/OrderPanel";
+import { DeliveryTicker } from "@/components/order/DeliveryTicker";
+import { DeliveryCard } from "@/components/order/DeliveryCard";
 
 const channelCategories: Record<"index" | "takeout" | "travel", string[]> = {
-  index: categories.filter((c) => c !== "盲盒"),
+  index: categories.filter((c) => c !== "盲盒" && c !== "外卖" && c !== "水果" && c !== "零食" && c !== "饮料" && c !== "旅行"),
   takeout: ["外卖", "水果", "零食", "饮料"],
   travel: ["旅行"],
 };
 
 // 首页电商分类入口（25个，横向滚动，默认显示5个）
-const HOME_CATEGORIES: Array<{ icon: string; label: string; category?: string; keyword?: string }> = [
-  { icon: "👜", label: "箱包", category: "鞋服", keyword: "包|箱|背包|钱包" },
-  { icon: "💄", label: "美妆护肤", category: "美妆" },
-  { icon: "👗", label: "女装", category: "鞋服", keyword: "裙|女装|上衣|毛衣|卫衣" },
-  { icon: "💍", label: "黄金珠宝", category: "鞋服", keyword: "黄金|珠宝|项链|戒指|钻" },
-  { icon: "💻", label: "数码", category: "数码" },
-  { icon: "📺", label: "家电", category: "家电" },
-  { icon: "📱", label: "手机", category: "数码", keyword: "手机|iPhone|华为|小米|OPPO|vivo" },
-  { icon: "🧴", label: "个护清洁", category: "美妆", keyword: "洗面|洗发|沐浴|牙膏|纸巾|清洁" },
-  { icon: "🍳", label: "厨具", category: "生活用品", keyword: "锅|碗|刀|铲|烤|烘焙|餐具" },
-  { icon: "🛋️", label: "家居", category: "生活用品", keyword: "床|枕|被|垫|毯|收纳|家具|灯" },
-  { icon: "💊", label: "医疗保健", category: "生活用品", keyword: "保健|按摩|理疗|体温|血压" },
-  { icon: "🍻", label: "食品酒饮", category: "零食" },
-  { icon: "🚗", label: "汽摩生活", category: "生活用品", keyword: "车|汽|摩托|车载" },
-  { icon: "💎", label: "奢侈品", category: "鞋服", keyword: "LV|古驰|香奈儿|爱马仕|Gucci|奢侈品" },
-  { icon: "🐾", label: "宠物鲜花", category: "生活用品", keyword: "宠物|猫|狗|鲜花|花" },
-  { icon: "✏️", label: "文具", category: "数码", keyword: "笔|本|文具|书|阅读" },
-  { icon: "⚽", label: "运动户外", category: "鞋服", keyword: "运动|健身|跑步|瑜伽|户外|登山" },
-  { icon: "🔧", label: "工业品", category: "生活用品", keyword: "工具|五金|螺丝|工业" },
-  { icon: "🎸", label: "玩具乐器", category: "数码", keyword: "玩具|乐高|吉他|钢琴|乐器|模型" },
-  { icon: "🖥️", label: "电脑办公", category: "数码", keyword: "电脑|笔记本|键盘|鼠标|显示器|办公" },
-  { icon: "👶", label: "母婴童装", category: "鞋服", keyword: "婴儿|童装|奶粉|纸尿裤|宝宝" },
-  { icon: "👔", label: "男装", category: "鞋服", keyword: "男装|衬衫|夹克|西装|男" },
-  { icon: "🌱", label: "农资园艺", category: "水果", keyword: "种子|花盆|园艺|农" },
-  { icon: "🥬", label: "生鲜", category: "水果" },
-  { icon: "👟", label: "鞋靴", category: "鞋服", keyword: "鞋|靴|拖鞋|运动鞋" },
+const HOME_CATEGORIES: Array<{ icon: LucideIcon; label: string; category?: string; keyword?: string }> = [
+  { icon: Luggage, label: "箱包", category: "鞋服", keyword: "包|箱|背包|钱包" },
+  { icon: Gem, label: "美妆护肤", category: "美妆" },
+  { icon: Shirt, label: "女装", category: "鞋服", keyword: "裙|女装|上衣|毛衣|卫衣" },
+  { icon: BadgeCheck, label: "黄金珠宝", category: "鞋服", keyword: "黄金|珠宝|项链|戒指|钻" },
+  { icon: Laptop, label: "数码", category: "数码" },
+  { icon: WashingMachine, label: "家电", category: "家电" },
+  { icon: Smartphone, label: "手机", category: "数码", keyword: "手机|iPhone|华为|小米|OPPO|vivo" },
+  { icon: Sparkles, label: "个护清洁", category: "美妆", keyword: "洗面|洗发|沐浴|牙膏|纸巾|清洁" },
+  { icon: Utensils, label: "厨具", category: "生活用品", keyword: "锅|碗|刀|铲|烤|烘焙|餐具" },
+  { icon: Home, label: "家居", category: "生活用品", keyword: "床|枕|被|垫|毯|收纳|家具|灯" },
+  { icon: Heart, label: "医疗保健", category: "生活用品", keyword: "保健|按摩|理疗|体温|血压" },
+  { icon: Coffee, label: "食品酒饮", category: "零食" },
+  { icon: Car, label: "汽摩生活", category: "生活用品", keyword: "车|汽|摩托|车载" },
+  { icon: Gem, label: "奢侈品", category: "鞋服", keyword: "LV|古驰|香奈儿|爱马仕|Gucci|奢侈品" },
+  { icon: Flower2, label: "宠物鲜花", category: "生活用品", keyword: "宠物|猫|狗|鲜花|花" },
+  { icon: BriefcaseBusiness, label: "文具", category: "数码", keyword: "笔|本|文具|书|阅读" },
+  { icon: Dumbbell, label: "运动户外", category: "鞋服", keyword: "运动|健身|跑步|瑜伽|户外|登山" },
+  { icon: Store, label: "工业品", category: "生活用品", keyword: "工具|五金|螺丝|工业" },
+  { icon: Gift, label: "玩具乐器", category: "数码", keyword: "玩具|乐高|吉他|钢琴|乐器|模型" },
+  { icon: Laptop, label: "电脑办公", category: "数码", keyword: "电脑|笔记本|键盘|鼠标|显示器|办公" },
+  { icon: Baby, label: "母婴童装", category: "鞋服", keyword: "婴儿|童装|奶粉|纸尿裤|宝宝" },
+  { icon: Shirt, label: "男装", category: "鞋服", keyword: "男装|衬衫|夹克|西装|男" },
+  { icon: Flower2, label: "农资园艺", category: "水果", keyword: "种子|花盆|园艺|农" },
+  { icon: Beef, label: "生鲜", category: "水果" },
+  { icon: ShoppingBag, label: "鞋靴", category: "鞋服", keyword: "鞋|靴|拖鞋|运动鞋" },
 ];
 
 const HOME_CATEGORY_ROW_HEIGHT = 76;
@@ -66,19 +121,19 @@ const HOME_CATEGORY_EXPANDED_HEIGHT =
 // 子分类（与首页快捷入口完全一致，确保 tab 栏显示与点击入口一致）
 const subCategoriesByChannel: Record<
   "index" | "takeout" | "travel",
-  Array<{ label: string; category?: string; keyword?: string }>
+  Array<{ label: string; category?: string; keyword?: string; subCategory?: string }>
 > = {
   index: HOME_CATEGORIES.map((c) => ({ label: c.label, category: c.category, keyword: c.keyword })),
   takeout: [
-    { label: "快餐便当", category: "外卖", keyword: "汉堡|炸鸡|拌饭|套餐|饭|卷|鸡|堡" },
-    { label: "奶茶饮品", category: "外卖", keyword: "奶茶|茶|咖啡|奶|饮|果汁|柠" },
-    { label: "烧烤炸串", category: "外卖", keyword: "烤|炸|串|螺蛳|小龙虾|虾" },
-    { label: "蛋糕甜点", category: "外卖", keyword: "蛋糕|甜|布丁|披萨|芝士" },
-    { label: "面食粥品", category: "外卖", keyword: "面|粥|粉|意面|螺" },
-    { label: "日料寿司", category: "外卖", keyword: "寿司|日料|刺身|日式" },
-    { label: "披萨意面", category: "外卖", keyword: "披萨|意面|芝士|西餐" },
-    { label: "中式正餐", category: "外卖", keyword: "火锅|香锅|冒菜|锅|中餐|炒|炖" },
-    { label: "西式快餐", category: "外卖", keyword: "薯|汉堡|鸡|堡|快餐" },
+    { label: "快餐便当", category: "外卖", subCategory: "快餐便当" },
+    { label: "奶茶饮品", category: "外卖", subCategory: "奶茶饮品" },
+    { label: "烧烤炸串", category: "外卖", subCategory: "烧烤炸串" },
+    { label: "蛋糕甜点", category: "外卖", subCategory: "蛋糕甜点" },
+    { label: "面食粥品", category: "外卖", subCategory: "面食粥品" },
+    { label: "日料寿司", category: "外卖", subCategory: "日料寿司" },
+    { label: "披萨意面", category: "外卖", subCategory: "披萨意面" },
+    { label: "中式正餐", category: "外卖", subCategory: "中式正餐" },
+    { label: "西式快餐", category: "外卖", subCategory: "西式快餐" },
   ],
   travel: [
     { label: "酒店", category: "旅行", keyword: "酒店|住宿|房|民宿|客栈" },
@@ -91,24 +146,8 @@ const subCategoriesByChannel: Record<
     { label: "露营", category: "旅行", keyword: "露营|帐篷|营地|草原" },
   ],
 };
-import { type CartItem, type PurchaseRecord, useShopStore } from "@/store/useShopStore";
+import { type CartItem, type PurchaseRecord, useShopStore, BADGES, BADGE_CATEGORIES, type BadgeCategory } from "@/store/useShopStore";
 import QRCode from "qrcode";
-
-type View =
-  | "home"
-  | "category"
-  | "list"
-  | "detail"
-  | "cart"
-  | "delivery"
-  | "done"
-  | "mine"
-  | "wish"
-  | "orders"
-  | "favorites"
-  | "admin"
-  | "flight"
-  | "flightBooking";
 
 const categoryShortcuts = [
   { label: "想吃点好的", icon: "🍔", category: "外卖" },
@@ -116,7 +155,7 @@ const categoryShortcuts = [
   { label: "潮流鞋服", icon: "👟", category: "鞋服" },
   { label: "美妆护肤", icon: "💄", category: "美妆" },
   { label: "随便逛逛", icon: "🛍", category: undefined },
-  { label: "我的购物车", icon: "❤️", category: "cart" },
+  { label: "我的已下单", icon: "❤️", category: "cart" },
 ];
 
 const zodiacSigns = [
@@ -148,161 +187,6 @@ const chineseZodiac = [
   { name: "狗", emoji: "🐶" },
   { name: "猪", emoji: "🐷" },
 ];
-
-const deliveryStepsByChannel: Record<
-  "index" | "takeout" | "travel",
-  string[]
-> = {
-  index: [
-    "订单生成",
-    "商家接单",
-    "商品拣货中",
-    "商品打包完成",
-    "快递揽收",
-    "运输到分拣中心",
-    "运往配送站",
-    "派送员接单",
-    "配送中",
-    "距离 5.2km",
-    "距离 2.3km",
-    "距离 800m",
-    "已送达",
-  ],
-  takeout: [
-    "订单生成",
-    "商家接单",
-    "骑手接单",
-    "骑手到店",
-    "商品制作中",
-    "已取货",
-    "配送中",
-    "距离 2.3km",
-    "距离 1.6km",
-    "距离 800m",
-    "距离 200m",
-    "已送达",
-  ],
-  travel: [
-    "订单生成",
-    "商家确认预订",
-    "预订成功",
-    "距离出发还有7天",
-    "距离出发还有5天",
-    "距离出发还有3天",
-    "距离出发还有2天",
-    "距离出发还有1天",
-    "今天出发",
-    "出行中",
-    "行程已完成",
-  ],
-};
-
-const getDeliverySteps = (channel?: string) =>
-  deliveryStepsByChannel[
-    (channel as "index" | "takeout" | "travel") ?? "index"
-  ];
-
-const money = (value: number) => `¥${Math.round(value)}`;
-
-const calculateSpecPrice = (product: Product, selectedSpecs: Record<string, string>) => {
-  let totalDelta = 0;
-  if (product.specs) {
-    product.specs.forEach((spec) => {
-      const selectedName = selectedSpecs[spec.label];
-      if (selectedName) {
-        const option = spec.options.find((o) => o.name === selectedName);
-        if (option) {
-          totalDelta += option.priceDelta;
-        }
-      }
-    });
-  }
-  return product.price + totalDelta;
-};
-
-const shortMoney = (value: number) => {
-  const v = Math.round(value);
-  if (v >= 100000000) {
-    return `¥${(v / 100000000).toFixed(2)}亿`;
-  }
-  if (v >= 10000) {
-    return `¥${(v / 10000).toFixed(1)}万`;
-  }
-  return `¥${v}`;
-};
-
-const pinyinMap: Record<string, string[]> = {
-  "牛": ["niu"], "奶": ["nai"], "茶": ["cha"],
-  "鸡": ["ji"], "肉": ["rou"], "饭": ["fan"], "面": ["mian"],
-  "包": ["bao"], "子": ["zi"], "饺": ["jiao"], "披": ["pi"], "萨": ["sa"],
-  "汉": ["han"], "堡": ["bao"], "薯": ["shu"], "条": ["tiao"], "可": ["ke"], "乐": ["le"],
-  "电": ["dian"], "脑": ["nao"], "手": ["shou"], "机": ["ji"],
-  "耳": ["er"], "键": ["jian"], "盘": ["pan"], "鼠": ["shu"], "标": ["biao"],
-  "表": ["biao"], "眼": ["yan"], "镜": ["jing"],
-  "衣": ["yi"], "服": ["fu"], "鞋": ["xie"], "帽": ["mao"],
-  "裤": ["ku"], "裙": ["qun"], "袜": ["wa"],
-  "口": ["kou"], "红": ["hong"], "唇": ["chun"], "膏": ["gao"],
-  "膜": ["mo"], "洗": ["xi"],
-  "水": ["shui"], "果": ["guo"], "蔬": ["shu"], "菜": ["cai"],
-  "海": ["hai"], "鲜": ["xian"], "蛋": ["dan"],
-  "零": ["ling"], "食": ["shi"], "糖": ["tang"],
-  "巧": ["qiao"], "克": ["ke"], "力": ["li"], "饼": ["bing"], "干": ["gan"],
-  "旅": ["lv"], "行": ["xing"], "酒": ["jiu"], "店": ["dian"],
-  "票": ["piao"], "门": ["men"],
-  "家": ["jia"], "具": ["ju"], "居": ["ju"],
-  "枕": ["zhen"], "头": ["tou"], "被": ["bei"],
-  "书": ["shu"], "本": ["ben"], "笔": ["bi"], "记": ["ji"],
-  "盲": ["mang"], "盒": ["he"], "幸": ["xing"], "运": ["yun"],
-  "动": ["dong"], "健": ["jian"], "身": ["shen"],
-  "器": ["qi"], "材": ["cai"],
-};
-
-const fuzzySearch = (products: Product[], query: string): Product[] => {
-  if (!query.trim()) return products;
-  const q = query.trim().toLowerCase();
-
-  return products.filter((product) => {
-    const title = product.title.toLowerCase();
-    const category = product.category.toLowerCase();
-
-    if (title.includes(q) || category.includes(q)) return true;
-
-    for (let i = 0; i < q.length; i++) {
-      const char = q[i];
-      if (title.includes(char)) return true;
-    }
-
-    const chars = product.title.split("");
-    for (const char of chars) {
-      const pinyins = pinyinMap[char];
-      if (pinyins) {
-        for (const py of pinyins) {
-          if (py.includes(q) || q.includes(py[0])) return true;
-        }
-      }
-    }
-
-    return false;
-  });
-};
-
-const getChannelFromItems = (items: CartItem[]): "index" | "takeout" | "travel" => {
-  const categories = items.map((i) => i.category);
-  if (categories.length > 0 && categories.every((c) => c === "旅行"))
-    return "travel";
-  if (categories.length > 0 && categories.every((c) => c === "外卖"))
-    return "takeout";
-  return "index";
-};
-
-type DeliveryOrder = {
-  id: string;
-  amount: number;
-  items: CartItem[];
-  stepIndex: number;
-  createdAt: string;
-  channel: "index" | "takeout" | "travel";
-};
 
 type FlightCity = { code: string; name: string; pinyin: string; region?: string };
 const FLIGHT_CITY_DATA: Record<"domestic" | "international", FlightCity[]> = {
@@ -649,13 +533,16 @@ const INTERNATIONAL_AIRLINES: { code: string; name: string; logo: string; color:
 
 export default function MoonCartApp() {
   const [view, setView] = useState<View>("home");
+  const [prevView, setPrevView] = useState<View>("home");
   const [homeTab, setHomeTab] = useState<"index" | "takeout" | "travel">("index");
   const [listChannel, setListChannel] = useState<"index" | "takeout" | "travel">("index");
   const [categoryChannel, setCategoryChannel] = useState<"index" | "takeout" | "travel">("index");
   const [subKeyword, setSubKeyword] = useState("");
   const [listTitle, setListTitle] = useState<string>("");
   const [categoryExpanded, setCategoryExpanded] = useState(false);
-  const categorySwipeRef = useRef({ x: 0, y: 0, moved: false });
+  const [touchStartX, setTouchStartX] = useState(0);
+  const [touchStartY, setTouchStartY] = useState(0);
+  const categorySwipeRef = useRef({ x: 0, y: 0, moved: false, swipedAt: 0 });
   const categoryScrollRef = useRef<HTMLDivElement>(null);
   const listTabScrollRef = useRef<HTMLDivElement>(null);
 
@@ -705,6 +592,9 @@ export default function MoonCartApp() {
   const [selectedCategory, setSelectedCategory] = useState<
     string | undefined
   >();
+  const [selectedSubCategory, setSelectedSubCategory] = useState<
+    string | undefined
+  >();
   const [selectedProduct, setSelectedProduct] = useState<Product>(products[0]);
   const [selectedSpecs, setSelectedSpecs] = useState<Record<string, string>>({});
   const [lastOrderAmount, setLastOrderAmount] = useState(428);
@@ -713,6 +603,12 @@ export default function MoonCartApp() {
   const [activeDeliveries, setActiveDeliveries] = useState<DeliveryOrder[]>([]);
   const [wishInput, setWishInput] = useState("");
   const [messageInput, setMessageInput] = useState("");
+  const [showAllBadges, setShowAllBadges] = useState(false);
+  const [ordersTab, setOrdersTab] = useState<"all" | "delivery" | "takeout" | "travel">("all");
+  const [editingCartItem, setEditingCartItem] = useState<CartItem | null>(null);
+  const [editingSpecs, setEditingSpecs] = useState<Record<string, string>>({});
+  const [quickAddProduct, setQuickAddProduct] = useState<Product | null>(null);
+  const [quickAddSpecs, setQuickAddSpecs] = useState<Record<string, string>>({});
   const [orderPanelOpen, setOrderPanelOpen] = useState(false);
   const [flightTripType, setFlightTripType] = useState<"oneway" | "roundtrip">("oneway");
   const [flightFrom, setFlightFrom] = useState("北京");
@@ -828,6 +724,14 @@ export default function MoonCartApp() {
   };
   const [darkMode, setDarkMode] = useState(false);
   const [orderFilter, setOrderFilter] = useState("all");
+  const [orderSearchQuery, setOrderSearchQuery] = useState("");
+  const [orderStatusFilter, setOrderStatusFilter] = useState<"all" | "pending" | "shipping" | "completed" | "aftersale">("all");
+  const [selectedCartItems, setSelectedCartItems] = useState<Set<number>>(new Set());
+  const [claimedCouponAmount, setClaimedCouponAmount] = useState(0);
+  const [couponTarget, setCouponTarget] = useState(0);
+  const [showCouponToast, setShowCouponToast] = useState(false);
+  const [flashMessage, setFlashMessage] = useState<string>("");
+  const [couponModalOpen, setCouponModalOpen] = useState(false);
   const [blindBoxProduct, setBlindBoxProduct] = useState<Product | null>(null);
   const [blindBoxExpireAt, setBlindBoxExpireAt] = useState<number | null>(null);
   const [blindBoxTimeLeft, setBlindBoxTimeLeft] = useState("");
@@ -844,6 +748,8 @@ export default function MoonCartApp() {
   const [sharePanelOpen, setSharePanelOpen] = useState(false);
   const [shareCardType, setShareCardType] = useState<"normal" | "blindbox">("normal");
   const [shareCardImage, setShareCardImage] = useState<string>("");
+  const [selectedShop, setSelectedShop] = useState<string | undefined>();
+  const [takeoutSubCategory, setTakeoutSubCategory] = useState<string | undefined>();
   const isDev = process.env.NODE_ENV === "development";
   useEffect(() => {
     const stored = typeof window !== "undefined" ? localStorage.getItem("blindBoxLastOpened") : null;
@@ -863,14 +769,19 @@ export default function MoonCartApp() {
     addMessage,
     removeFromCart,
     changeQuantity,
+    updateCartItemSpecs,
+    clearCart,
     markProductViewed,
     completeOrder,
+    updateOrderStatus,
     refreshStreak,
     applyAfterSale,
     completeAfterSale,
     setAvatar,
     setNickname,
   } = useShopStore();
+
+  const earnedBadges = useMemo(() => BADGES.filter((b) => stats.badges.includes(b.id)), [stats.badges]);
 
   useEffect(() => {
     refreshStreak();
@@ -881,6 +792,19 @@ export default function MoonCartApp() {
       setNickname(generateNickname());
     }
   }, [stats.nickname, setNickname]);
+
+  useEffect(() => {
+    const SHIPPING_DURATION = 66000;
+    (stats.purchases ?? []).forEach((purchase) => {
+      if (purchase.status === "shipping") {
+        const createdAt = new Date(purchase.createdAt).getTime();
+        const now = Date.now();
+        if (now - createdAt >= SHIPPING_DURATION) {
+          updateOrderStatus(purchase.id, "completed");
+        }
+      }
+    });
+  }, [stats.purchases, updateOrderStatus]);
 
   useEffect(() => {
     if (darkMode) {
@@ -940,56 +864,281 @@ export default function MoonCartApp() {
 
   const visibleProducts = useMemo(() => {
     const channelCats = channelCategories[listChannel];
-    const kw = subKeyword.trim();
+    const kw = subKeyword.trim().toLowerCase();
+    if (selectedSubCategory) {
+      return pickProducts(undefined, selectedSubCategory)
+        .filter((p) => !kw || p.title.toLowerCase().includes(kw));
+    }
     if (selectedCategory) {
       return pickProducts(selectedCategory)
         .filter((p) => channelCats.includes(p.category))
-        .filter((p) => !kw || new RegExp(kw).test(p.title));
+        .filter((p) => !kw || p.title.toLowerCase().includes(kw));
     }
     return products
       .filter((p) => p.category !== "盲盒" && channelCats.includes(p.category))
-      .filter((p) => !kw || new RegExp(kw).test(p.title));
-  }, [selectedCategory, listChannel, subKeyword]);
+      .filter((p) => !kw || p.title.toLowerCase().includes(kw));
+  }, [selectedCategory, selectedSubCategory, listChannel, subKeyword]);
   const cartTotal = cart.reduce(
     (sum, item) => sum + (item.finalPrice ?? item.price) * item.quantity,
     0,
   );
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
-  const discount =
-    cartTotal > 300 ? 60 : cartTotal > 160 ? 30 : cartTotal > 80 ? 12 : 0;
-  const finalTotal = Math.max(0, cartTotal - discount);
 
-  const filteredPurchases = useMemo(() => {
-    const purchases = stats.purchases ?? [];
-    if (orderFilter === "all") return purchases;
-    const now = new Date();
-    if (orderFilter === "7d") {
-      const cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      return purchases.filter((p) => new Date(p.createdAt) >= cutoff);
+  useEffect(() => {
+    if (cart.length > 0 && selectedCartItems.size === 0) {
+      setSelectedCartItems(new Set(cart.map((item) => item.id)));
     }
-    if (orderFilter === "30d") {
-      const cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-      return purchases.filter((p) => new Date(p.createdAt) >= cutoff);
+  }, [cart.length]);
+
+  const selectedItems = cart.filter((item) => selectedCartItems.has(item.id));
+  const selectedTotal = selectedItems.reduce(
+    (sum, item) => sum + (item.finalPrice ?? item.price) * item.quantity,
+    0,
+  );
+  const selectedCount = selectedItems.reduce((sum, item) => sum + item.quantity, 0);
+  const isAllSelected = cart.length > 0 && selectedCartItems.size === cart.length;
+
+  const takeoutItems = selectedItems.filter((item) => item.category === "外卖");
+  const travelItems = selectedItems.filter((item) => item.category === "旅行");
+  const deliveryItems = selectedItems.filter((item) => item.category !== "外卖" && item.category !== "旅行");
+  const takeoutTotal = takeoutItems.reduce(
+    (sum, item) => sum + (item.finalPrice ?? item.price) * item.quantity,
+    0,
+  );
+  const travelTotal = travelItems.reduce(
+    (sum, item) => sum + (item.finalPrice ?? item.price) * item.quantity,
+    0,
+  );
+  const deliveryTotal = deliveryItems.reduce(
+    (sum, item) => sum + (item.finalPrice ?? item.price) * item.quantity,
+    0,
+  );
+
+  const cartSelectedCategory = takeoutItems.length > 0 ? "takeout" : travelItems.length > 0 ? "travel" : deliveryItems.length > 0 ? "delivery" : null;
+  const mixedCategories = (takeoutItems.length > 0 ? 1 : 0) + (travelItems.length > 0 ? 1 : 0) + (deliveryItems.length > 0 ? 1 : 0) > 1;
+
+  const currentTotal = cartSelectedCategory === "takeout" ? takeoutTotal : cartSelectedCategory === "travel" ? travelTotal : deliveryTotal;
+  const couponAmount = couponTarget > 0 ? couponTarget - currentTotal : 0;
+  const canUseCoupon = currentTotal > 0 && claimedCouponAmount > 0;
+  const canCheckout = claimedCouponAmount > 0 && couponAmount <= 0;
+
+  useEffect(() => {
+    if (currentTotal <= 0 && claimedCouponAmount > 0) {
+      setClaimedCouponAmount(0);
+      setCouponTarget(0);
     }
-    if (orderFilter === "year") {
-      const year = now.getFullYear();
-      return purchases.filter(
-        (p) => new Date(p.createdAt).getFullYear() === year
+  }, [currentTotal, claimedCouponAmount]);
+
+  const finalSelectedTotal = canUseCoupon ? selectedTotal - claimedCouponAmount : selectedTotal;
+
+  const claimCoupon = () => {
+    if (currentTotal <= 0) return;
+    const target = Math.ceil(currentTotal / 50) * 50;
+    const coupon = target * 0.1;
+    setCouponTarget(target);
+    setClaimedCouponAmount(Math.floor(coupon));
+    setShowCouponToast(true);
+    setFlashMessage(`领券成功！获得 ${money(Math.floor(coupon))} 优惠券`);
+    setTimeout(() => {
+      setShowCouponToast(false);
+      setFlashMessage("");
+    }, 2000);
+    const needMore = target - currentTotal;
+    if (needMore > 0) {
+      setTimeout(() => {
+        setFlashMessage(`再买 ${money(needMore)} 即可使用优惠券结算`);
+      }, 2200);
+      setTimeout(() => {
+        setFlashMessage("");
+      }, 4200);
+    }
+  };
+
+  const clearFlashMessage = () => {
+    setFlashMessage("");
+  };
+
+  const toggleSelectItem = (id: number) => {
+    const newSelected = new Set(selectedCartItems);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedCartItems(newSelected);
+  };
+
+  const toggleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedCartItems(new Set());
+    } else {
+      setSelectedCartItems(new Set(cart.map((item) => item.id)));
+    }
+  };
+
+  const couponRecommendProducts = useMemo(() => {
+    if (couponAmount <= 0) return [];
+    const cartIds = new Set(cart.map((item) => item.id));
+    let categoryFilter: string[] = [];
+    if (cartSelectedCategory === "takeout") {
+      categoryFilter = ["外卖"];
+    } else if (cartSelectedCategory === "travel") {
+      categoryFilter = ["旅行"];
+    } else {
+      categoryFilter = ["数码", "美妆护肤", "女装", "男装", "箱包", "黄金珠宝", "家电", "家居用品", "食品饮料", "生鲜水果", "母婴用品", "运动户外", "图书音像", "宠物用品", "汽车用品", "医药健康"];
+    }
+    return products
+      .filter((p) => !cartIds.has(p.id) && categoryFilter.includes(p.category) && p.price >= couponAmount)
+      .sort((a, b) => a.price - b.price)
+      .slice(0, 10);
+  }, [couponAmount, cart, products, cartSelectedCategory]);
+
+  const addCouponProduct = (product: Product) => {
+    addToCart(product);
+    const newSelected = new Set(selectedCartItems);
+    newSelected.add(product.id);
+    setSelectedCartItems(newSelected);
+
+    const newCurrentTotal = currentTotal + product.price;
+    const newCouponAmount = couponTarget - newCurrentTotal;
+
+    setCouponModalOpen(false);
+    if (newCouponAmount <= 0) {
+      setFlashMessage(`已添加 ${product.title}，凑单完成！可以结算啦`);
+    } else {
+      setFlashMessage(`已添加 ${product.title}，还差 ${money(newCouponAmount)} 可享9折`);
+    }
+    setTimeout(() => setFlashMessage(""), 2000);
+  };
+
+  const filteredOrdersByTab = useMemo(() => {
+    let purchases = stats.purchases ?? [];
+    if (ordersTab !== "all") {
+      purchases = purchases.filter((p) => {
+        const categories = p.items.map((item) => item.category);
+        if (ordersTab === "delivery") {
+          return categories.every((c) => c !== "外卖" && c !== "旅行");
+        }
+        if (ordersTab === "takeout") {
+          return categories.some((c) => c === "外卖");
+        }
+        if (ordersTab === "travel") {
+          return categories.some((c) => c === "旅行");
+        }
+        return true;
+      });
+    }
+    if (ordersTab === "all" && orderFilter !== "all") {
+      const now = new Date();
+      if (orderFilter === "7d") {
+        const cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        purchases = purchases.filter((p) => new Date(p.createdAt) >= cutoff);
+      } else if (orderFilter === "30d") {
+        const cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        purchases = purchases.filter((p) => new Date(p.createdAt) >= cutoff);
+      } else if (orderFilter === "year") {
+        const year = now.getFullYear();
+        purchases = purchases.filter((p) => new Date(p.createdAt).getFullYear() === year);
+      }
+    }
+    if (orderStatusFilter !== "all") {
+      purchases = purchases.filter((p) => p.status === orderStatusFilter);
+    }
+    if (orderSearchQuery.trim()) {
+      const query = orderSearchQuery.trim().toLowerCase();
+      purchases = purchases.filter((p) =>
+        p.orderNo?.toLowerCase().includes(query)
       );
     }
     return purchases;
-  }, [stats.purchases, orderFilter]);
+  }, [stats.purchases, ordersTab, orderFilter, orderStatusFilter, orderSearchQuery]);
+
+  const getTakeoutShops = (subCat?: string): Array<{ name: string; rating: number; sales: string; deliveryTime: string; image: string }> => {
+    const takeoutProducts = products.filter((p) => p.category === "外卖" && (!subCat || p.subCategory === subCat));
+    const shopMap = new Map<string, { rating: number; sales: number; deliveryTime: string; image: string }>();
+    const shopImages: Record<string, string> = {
+      "喜茶": "🧋", "奈雪的茶": "🍵", "蜜雪冰城": "🍧", "茶百道": "🥤", "一点点": "🍵",
+      "CoCo": "🧋", "书亦烧仙草": "🍮", "古茗": "🧋", "沪上阿姨": "🥤", "瑞幸": "☕",
+      "麦当劳": "🍔", "肯德基": "🍗", "汉堡王": "🍔", "华莱士": "🍗", "德克士": "🍗",
+      "真功夫": "🍱", "老乡鸡": "🍲", "永和大王": "🥟", "吉野家": "🍚", "食其家": "🍱",
+      "海底捞": "🍲", "西贝莜面村": "🍜", "外婆家": "🥘", "绿茶餐厅": "🍲",
+      "必胜客": "🍕", "达美乐": "🍕", "棒约翰": "🍕", "萨莉亚": "🍝",
+      "疯狂烤翅": "🍗", "叫了个炸鸡": "🍗", "正新鸡排": "🍗", "木屋烧烤": "🍢",
+      "好利来": "🍰", "85度C": "🍰", "巴黎贝甜": "🍰", "味多美": "🍰", "满记甜品": "🍮",
+      "兰州牛肉面": "🍜", "沙县小吃": "🍜", "云南过桥米线": "🍜", "桂林米粉": "🍜",
+      "元气寿司": "🍣", "寿司郎": "🍣", "藏寿司": "🍣", "一兰拉面": "🍜",
+    };
+    const shopRatings: Record<string, number> = {
+      "喜茶": 4.8, "奈雪的茶": 4.7, "蜜雪冰城": 4.6, "茶百道": 4.7, "一点点": 4.6,
+      "CoCo": 4.5, "书亦烧仙草": 4.6, "古茗": 4.7, "沪上阿姨": 4.6, "瑞幸": 4.8,
+      "麦当劳": 4.9, "肯德基": 4.8, "汉堡王": 4.7, "华莱士": 4.5, "德克士": 4.6,
+      "真功夫": 4.6, "老乡鸡": 4.7, "永和大王": 4.5, "吉野家": 4.7, "食其家": 4.6,
+      "海底捞": 4.9, "西贝莜面村": 4.7, "外婆家": 4.6, "绿茶餐厅": 4.5,
+      "必胜客": 4.7, "达美乐": 4.8, "棒约翰": 4.6, "萨莉亚": 4.5,
+      "疯狂烤翅": 4.6, "叫了个炸鸡": 4.5, "正新鸡排": 4.5, "木屋烧烤": 4.7,
+      "好利来": 4.8, "85度C": 4.7, "巴黎贝甜": 4.7, "味多美": 4.6, "满记甜品": 4.7,
+      "兰州牛肉面": 4.6, "沙县小吃": 4.5, "云南过桥米线": 4.6, "桂林米粉": 4.5,
+      "元气寿司": 4.7, "寿司郎": 4.8, "藏寿司": 4.6, "一兰拉面": 4.9,
+    };
+    takeoutProducts.forEach((p) => {
+      if (p.shop) {
+        const existing = shopMap.get(p.shop);
+        const salesNum = parseFloat(p.sales) || 0;
+        if (!existing) {
+          shopMap.set(p.shop, {
+            rating: shopRatings[p.shop] ?? parseFloat((4.5 + Math.random() * 0.5).toFixed(1)),
+            sales: salesNum,
+            deliveryTime: `${20 + Math.floor(Math.random() * 20)}分钟`,
+            image: shopImages[p.shop] || "🍽️",
+          });
+        } else {
+          existing.sales += salesNum;
+        }
+      }
+    });
+    return Array.from(shopMap.entries()).map(([name, data]) => ({
+      name,
+      rating: data.rating,
+      sales: `${data.sales.toFixed(1)}万`,
+      deliveryTime: data.deliveryTime,
+      image: data.image,
+    }));
+  };
+
+  const getShopProducts = (shopName: string): Product[] => {
+    return products.filter((p) => p.shop === shopName && p.category === "外卖");
+  };
+
+  const openTakeoutShops = (subCategory?: string) => {
+    setTakeoutSubCategory(subCategory);
+    setSelectedSubCategory(subCategory);
+    setListTitle(subCategory || "全部美食");
+    setView("takeoutShops");
+  };
+
+  const openTakeoutShop = (shopName: string) => {
+    setSelectedShop(shopName);
+    setListTitle(shopName);
+    setView("takeoutShop");
+  };
+
+  const openRecommend = () => {
+    setListTitle(homeTab === "takeout" ? "为你推荐" : homeTab === "travel" ? "精选推荐" : "猜你喜欢");
+    setView("recommend");
+  };
 
   const openCategory = (
     category?: string,
     channel: "index" | "takeout" | "travel" = "index",
     keyword?: string,
     title?: string,
+    subCategory?: string,
   ) => {
     setSelectedCategory(category);
     setListChannel(channel);
     setSubKeyword(keyword ?? "");
     setListTitle(title ?? category ?? "全部商品");
+    setSelectedSubCategory(subCategory);
     setView("list");
   };
 
@@ -997,25 +1146,33 @@ export default function MoonCartApp() {
     setSelectedProduct(product);
     setSelectedSpecs({});
     markProductViewed();
+    setPrevView(view);
     setView("detail");
   };
 
   const startOrder = (
-    amount = finalTotal || selectedProduct.price,
+    amount?: number,
     items?: CartItem[],
   ) => {
+    const orderAmount = amount ?? (selectedProduct ? selectedProduct.price : 0);
     const orderItems = items?.length
       ? items.map((item) => ({ ...item }))
-      : [{ ...selectedProduct, quantity: 1, finalPrice: selectedProduct.price }];
+      : selectedProduct ? [{ ...selectedProduct, quantity: 1, finalPrice: selectedProduct.price }] : [];
     const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    setLastOrderAmount(amount);
+    setLastOrderAmount(orderAmount);
     setLastOrderItems(orderItems);
     setOrderPanelOpen(true);
+    // 结算后清理：购物车多商品单独结算时只移除该商品，全量结算时清空
+    if (items?.length && items.length < cart.length) {
+      items.forEach((item) => removeFromCart(item.id));
+    } else if (items?.length) {
+      clearCart();
+    }
     setActiveDeliveries((orders) => [
       ...orders,
       {
         id,
-        amount,
+        amount: orderAmount,
         items: orderItems,
         stepIndex: 0,
         createdAt: new Date().toISOString(),
@@ -1659,25 +1816,247 @@ export default function MoonCartApp() {
         onClose={() => setOrderPanelOpen(false)}
         onAccelerate={accelerate}
       />
+      {editingCartItem && editingCartItem.specs && editingCartItem.specs.length > 0 && (
+        <AnimatePresence>
+          {editingCartItem && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-end justify-center bg-black/40"
+              onClick={() => setEditingCartItem(null)}
+            >
+              <motion.div
+                initial={{ y: "100%" }}
+                animate={{ y: 0 }}
+                exit={{ y: "100%" }}
+                transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                className="w-full max-w-[460px] rounded-t-[32px] bg-white p-5 pb-8"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-black/10" />
+                <div className="flex items-center gap-3">
+                  <ProductVisual product={editingCartItem} compact />
+                  <div className="flex-1">
+                    <div className="font-semibold">{editingCartItem.title}</div>
+                    <div className="mt-1 text-lg font-semibold text-price">
+                      {money(calculateSpecPrice(editingCartItem, editingSpecs))}
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-5">
+                  <div className="mb-3 font-semibold">修改规格</div>
+                  {editingCartItem.specs.map((spec) => (
+                    <div key={spec.label} className="mt-3">
+                      <div className="mb-2 text-sm text-quiet">{spec.label}</div>
+                      <div className="flex flex-wrap gap-2">
+                        {spec.options.map((option) => {
+                          const isSelected = editingSpecs[spec.label] === option.name;
+                          return (
+                            <button
+                              key={option.name}
+                              onClick={() =>
+                                setEditingSpecs((prev) => ({
+                                  ...prev,
+                                  [spec.label]: option.name,
+                                }))
+                              }
+                              className={`flex items-center gap-1 rounded-full px-4 py-2 text-sm transition-all ${
+                                isSelected
+                                  ? "bg-primary text-white"
+                                  : "bg-black/[0.03] text-ink active:bg-black/5"
+                              }`}
+                            >
+                              <span>{option.name}</span>
+                              {option.priceDelta !== 0 && (
+                                <span className={`text-xs ${isSelected ? "text-white/80" : "text-quiet"}`}>
+                                  {option.priceDelta > 0 ? `+${option.priceDelta}` : option.priceDelta}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  className="mt-6 w-full rounded-full bg-primary py-3.5 text-sm font-semibold text-white shadow-[0_4px_12px_rgba(255,80,0,0.2)] active:bg-primary/80"
+                  onClick={() => {
+                    if (editingCartItem) {
+                      updateCartItemSpecs(
+                        editingCartItem.id,
+                        editingSpecs,
+                        calculateSpecPrice(editingCartItem, editingSpecs)
+                      );
+                    }
+                    setEditingCartItem(null);
+                  }}
+                >
+                  确认修改
+                </button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      )}
+      {quickAddProduct && quickAddProduct.specs && quickAddProduct.specs.length > 0 && (
+        <AnimatePresence>
+          {quickAddProduct && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-end justify-center bg-black/40"
+              onClick={() => setQuickAddProduct(null)}
+            >
+              <motion.div
+                initial={{ y: "100%" }}
+                animate={{ y: 0 }}
+                exit={{ y: "100%" }}
+                transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                className="w-full max-w-[460px] rounded-t-[32px] bg-white p-5 pb-8"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-black/10" />
+                <div className="flex items-center gap-3">
+                  <ProductVisual product={quickAddProduct} compact />
+                  <div className="flex-1">
+                    <div className="font-semibold">{quickAddProduct.title}</div>
+                    <div className="mt-1 text-lg font-semibold text-price">
+                      {money(calculateSpecPrice(quickAddProduct, quickAddSpecs))}
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-5">
+                  <div className="mb-3 font-semibold">选择规格</div>
+                  {quickAddProduct.specs.map((spec) => (
+                    <div key={spec.label} className="mt-3">
+                      <div className="mb-2 text-sm text-quiet">{spec.label}</div>
+                      <div className="flex flex-wrap gap-2">
+                        {spec.options.map((option) => {
+                          const isSelected = quickAddSpecs[spec.label] === option.name;
+                          return (
+                            <button
+                              key={option.name}
+                              onClick={() =>
+                                setQuickAddSpecs((prev) => ({
+                                  ...prev,
+                                  [spec.label]: option.name,
+                                }))
+                              }
+                              className={`flex items-center gap-1 rounded-full px-4 py-2 text-sm transition-all ${
+                                isSelected
+                                  ? "bg-primary text-white"
+                                  : "bg-black/[0.03] text-ink active:bg-black/5"
+                              }`}
+                            >
+                              <span>{option.name}</span>
+                              {option.priceDelta !== 0 && (
+                                <span className={`text-xs ${isSelected ? "text-white/80" : "text-quiet"}`}>
+                                  {option.priceDelta > 0 ? `+${option.priceDelta}` : option.priceDelta}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  className="mt-6 w-full rounded-full bg-primary py-3.5 text-sm font-semibold text-white shadow-[0_4px_12px_rgba(255,80,0,0.2)] active:bg-primary/80"
+                  onClick={() => {
+                    addToCart(
+                      quickAddProduct,
+                      quickAddSpecs,
+                      calculateSpecPrice(quickAddProduct, quickAddSpecs)
+                    );
+                    setQuickAddProduct(null);
+                  }}
+                >
+                  已下单
+                </button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      )}
+      {couponModalOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/40 flex items-end justify-center"
+          onClick={() => setCouponModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-md bg-white rounded-t-[28px] overflow-hidden max-h-[70vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 pt-5 pb-3 border-b border-black/5">
+              <div className="text-lg font-semibold">凑单领券</div>
+              <div className="text-sm text-quiet mt-1">
+                再买 <span className="text-primary font-semibold">{money(couponAmount)}</span> 可享9折优惠，已领优惠券 <span className="text-primary font-semibold">{money(claimedCouponAmount)}</span>
+              </div>
+            </div>
+            <div className="px-5 py-3 overflow-y-auto max-h-[50vh] space-y-3">
+              {couponRecommendProducts.map((product) => (
+                <div
+                  key={product.id}
+                  className="flex items-center gap-3 rounded-2xl bg-black/[0.02] p-3"
+                >
+                  <div className="h-14 w-14 shrink-0 rounded-[14px] bg-black/[0.03] flex items-center justify-center text-3xl">
+                    {product.emoji}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate">
+                      {product.title}
+                    </div>
+                    <div className="text-primary font-semibold mt-0.5">
+                      {money(product.price)}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => addCouponProduct(product)}
+                    className="shrink-0 rounded-full bg-primary px-4 py-1.5 text-xs font-medium text-white"
+                  >
+                    加购
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div className="px-5 py-4 border-t border-black/5">
+              <button
+                onClick={() => setCouponModalOpen(false)}
+                className="w-full rounded-full bg-black/[0.06] py-3 text-sm font-medium"
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <AnimatePresence mode="wait">
         {view === "home" && (
           <Screen key="home">
             <section className="pb-4">
-              <div className="sticky top-0 z-20 -mx-4 bg-paper/95 px-4 pb-3 pt-4 backdrop-blur">
+              <div className="sticky top-0 z-20 -mx-4 bg-paper px-4 pb-3 pt-4">
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-2">
-                    <span className="text-2xl">🌙</span>
+                    <img
+                      src="/logo.png"
+                      alt="睡前逛逛"
+                      className="h-11 w-11 shrink-0 rounded-2xl bg-white/90 p-1.5 object-contain shadow-soft"
+                    />
                     <div>
                       <div className="text-sm font-semibold">睡前逛逛</div>
                       <div className="text-[10px] text-quiet">Moon Cart</div>
                     </div>
                   </div>
-                  <div className="flex-1 flex items-center justify-center gap-0.5 rounded-full bg-black/[0.05] p-1">
+                  <div className="flex-1 flex items-center justify-center gap-0.5 rounded-full p-1">
                     <button
                       onClick={() => setHomeTab("index")}
                       className={`flex-1 py-2 rounded-full text-sm font-medium transition-all ${
                         homeTab === "index"
-                          ? "bg-white text-ink shadow-sm"
+                          ? "bg-coral text-white"
                           : "text-quiet"
                       }`}
                     >
@@ -1687,7 +2066,7 @@ export default function MoonCartApp() {
                       onClick={() => setHomeTab("takeout")}
                       className={`flex-1 py-2 rounded-full text-sm font-medium transition-all ${
                         homeTab === "takeout"
-                          ? "bg-white text-ink shadow-sm"
+                          ? "bg-coral text-white"
                           : "text-quiet"
                       }`}
                     >
@@ -1697,7 +2076,7 @@ export default function MoonCartApp() {
                       onClick={() => setHomeTab("travel")}
                       className={`flex-1 py-2 rounded-full text-sm font-medium transition-all ${
                         homeTab === "travel"
-                          ? "bg-white text-ink shadow-sm"
+                          ? "bg-coral text-white"
                           : "text-quiet"
                       }`}
                     >
@@ -1705,51 +2084,81 @@ export default function MoonCartApp() {
                     </button>
                   </div>
                 </div>
-                <button
-                  className="mt-3 w-full flex items-center gap-2 rounded-full bg-white px-4 py-3 shadow-soft active:scale-[0.98] transition-transform"
-                  onClick={() => {
-                    setCategoryChannel(homeTab);
-                    setView("category");
-                  }}
-                >
+                <div className="mt-3 flex min-h-[48px] items-center gap-2 rounded-full bg-white px-4 py-3 shadow-soft">
                   <Search size={16} className="text-quiet" />
-                  <span className="text-sm text-quiet">
-                    {homeTab === "takeout" ? "搜索美食、店铺" : homeTab === "travel" ? "搜索酒店、景点、机票" : "搜索你想买的"}
-                  </span>
-                </button>
+                  <input
+                    type="text"
+                    maxLength={50}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === "Enter" && searchQuery.trim()) {
+                        openCategory(undefined, homeTab, searchQuery.trim(), "搜索结果");
+                      }
+                    }}
+                    placeholder={homeTab === "takeout" ? "搜索美食、店铺" : homeTab === "travel" ? "搜索酒店、景点、机票" : "今晚想'买'点什么"}
+                    className="flex-1 bg-transparent outline-none text-sm placeholder:text-quiet text-ink"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => {
+                        setSearchQuery("");
+                        openCategory(undefined, homeTab, "", "全部商品");
+                      }}
+                      className="text-quiet hover:text-ink transition-colors"
+                    >
+                      <X size={16} />
+                    </button>
+                  )}
+                  {searchQuery && (
+                    <button
+                      onClick={() => openCategory(undefined, homeTab, searchQuery.trim(), "搜索结果")}
+                      className="rounded-full bg-primary px-3 py-1 text-xs font-semibold text-white"
+                    >
+                      逛逛
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="mt-3 hide-scrollbar -mx-4 flex gap-3 overflow-x-auto px-4">
                 {(homeTab === "takeout"
                   ? [
-                      { emoji: "🍜", text: "满30减10", bg: "from-red-500 to-orange-500" },
-                      { emoji: "🥤", text: "奶茶第二杯半价", bg: "from-pink-400 to-rose-400" },
-                      { emoji: "🍱", text: "新人专享0元", bg: "from-amber-400 to-yellow-500" },
-                      { emoji: "⚡", text: "闪送30分钟达", bg: "from-blue-500 to-cyan-500" },
+                      { emoji: "🍜", text: "满30减10", bg: "from-amber-500 to-orange-600" },
+                      { emoji: "🥤", text: "奶茶第二杯半价", bg: "from-emerald-500 to-teal-500" },
+                      { emoji: "🍱", text: "新人专享0元", bg: "from-lime-500 to-emerald-600" },
+                      { emoji: "⚡", text: "闪送30分钟达", bg: "from-cyan-500 to-teal-600" },
                     ]
                   : homeTab === "travel"
                   ? [
-                      { emoji: "✈️", text: "机票买一送一", bg: "from-sky-500 to-blue-600" },
-                      { emoji: "🏨", text: "酒店5折起", bg: "from-violet-500 to-purple-600" },
+                      { emoji: "✈️", text: "机票买一送一", bg: "from-teal-500 to-cyan-600" },
+                      { emoji: "🏨", text: "酒店5折起", bg: "from-emerald-500 to-teal-600" },
                       { emoji: "🎫", text: "门票特惠", bg: "from-emerald-500 to-teal-600" },
                       { emoji: "🗺️", text: "跟团游立减500", bg: "from-orange-500 to-amber-600" },
                     ]
                   : [
-                      { emoji: "🎊", text: "限时特价", bg: "from-coral to-gold" },
-                      { emoji: "✨", text: "新人专享", bg: "from-pink-400 to-rose-400" },
-                      { emoji: "🎁", text: "每日盲盒", bg: "from-violet-400 to-purple-500" },
-                      { emoji: "🔥", text: "热销榜单", bg: "from-orange-500 to-red-500" },
+                      { emoji: "🎊", text: "今日低至5折", bg: "from-emerald-500 to-teal-600" },
+                      { emoji: "✨", text: "新人专享", bg: "from-amber-500 to-orange-600" },
+                      { emoji: "🎁", text: "每日盲盒", bg: "from-lime-500 to-emerald-600" },
+                      { emoji: "🔥", text: "热销榜单", bg: "from-orange-500 to-amber-600" },
                     ]
                 ).map((banner, i) => (
                   <div
                     key={i}
-                    className={`shrink-0 w-[70%] h-28 rounded-[24px] bg-gradient-to-r ${banner.bg} p-5 flex items-center justify-between text-white shadow-lg`}
+                    className={`relative shrink-0 w-[70%] h-28 rounded-2xl p-5 flex items-center justify-between overflow-hidden shadow-soft ${
+                      i === 0
+                        ? "bg-coral text-white"
+                        : "bg-coral-light text-coral-deep"
+                    }`}
                   >
-                    <div>
-                      <div className="text-xl font-bold">{banner.text}</div>
+                    <div className="relative z-10">
+                      <div className="text-xl font-medium">{banner.text}</div>
                       <div className="mt-1 text-xs opacity-80">点击查看详情</div>
                     </div>
-                    <div className="text-5xl">{banner.emoji}</div>
+                    <div className={`relative z-10 text-5xl ${i === 0 ? "opacity-90" : "opacity-60"}`}>{banner.emoji}</div>
+                    {i === 0 && (
+                      <div className="absolute -right-2 -top-2 text-8xl opacity-20 pointer-events-none select-none">{banner.emoji}</div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1757,118 +2166,79 @@ export default function MoonCartApp() {
               {homeTab === "index" ? (
                 <div className="relative mt-4">
                   <div
-                    ref={categoryScrollRef}
-                    className={`hide-scrollbar cursor-grab select-none ${
-                      categoryExpanded ? "overflow-hidden" : "overflow-x-auto overflow-y-hidden"
-                    }`}
+                    className="hide-scrollbar"
                     style={{
+                      overflowX: "auto",
+                      overflowY: "hidden",
                       height: categoryExpanded
                         ? `${HOME_CATEGORY_EXPANDED_HEIGHT}px`
                         : `${HOME_CATEGORY_COLLAPSED_HEIGHT}px`,
-                      transition: "height 0.3s ease",
-                      touchAction: categoryExpanded ? "pan-y" : "pan-x pan-y",
+                      transition: "height 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+                    }}
+                    onTouchStart={(e) => {
+                      const touch = e.touches[0];
+                      setTouchStartX(touch.clientX);
+                      setTouchStartY(touch.clientY);
+                    }}
+                    onTouchEnd={(e) => {
+                      const touch = e.changedTouches[0];
+                      const deltaX = touch.clientX - touchStartX;
+                      const deltaY = touch.clientY - touchStartY;
+                      if (Math.abs(deltaX) > Math.abs(deltaY) && deltaX < -50) {
+                        setCategoryExpanded(true);
+                      }
+                      if (Math.abs(deltaX) > Math.abs(deltaY) && deltaX > 50) {
+                        setCategoryExpanded(false);
+                      }
                     }}
                     onPointerDown={(e) => {
-                      categorySwipeRef.current = {
-                        x: e.clientX,
-                        y: e.clientY,
-                        moved: false,
-                      };
-                      e.currentTarget.setPointerCapture?.(e.pointerId);
-                    }}
-                    onPointerMove={(e) => {
-                      const deltaX = e.clientX - categorySwipeRef.current.x;
-                      const deltaY = e.clientY - categorySwipeRef.current.y;
-                      if (Math.abs(deltaX) > 6 && Math.abs(deltaX) > Math.abs(deltaY)) {
-                        categorySwipeRef.current.moved = true;
-                        if (!categoryExpanded && deltaX < -6) {
-                          setCategoryExpanded(true);
-                          requestAnimationFrame(() => {
-                            categoryScrollRef.current?.scrollTo({ left: 0, behavior: "auto" });
-                          });
-                        }
-                        if (categoryExpanded && deltaX > 6) {
-                          setCategoryExpanded(false);
-                          requestAnimationFrame(() => {
-                            categoryScrollRef.current?.scrollTo({ left: 0, behavior: "auto" });
-                          });
-                        }
-                      }
+                      setTouchStartX(e.clientX);
+                      setTouchStartY(e.clientY);
                     }}
                     onPointerUp={(e) => {
-                      const deltaX = e.clientX - categorySwipeRef.current.x;
-                      const deltaY = e.clientY - categorySwipeRef.current.y;
-                      if (Math.abs(deltaX) > Math.abs(deltaY) && deltaX < -18) {
-                        categorySwipeRef.current.moved = true;
+                      const deltaX = e.clientX - touchStartX;
+                      const deltaY = e.clientY - touchStartY;
+                      if (Math.abs(deltaX) > Math.abs(deltaY) && deltaX < -50) {
                         setCategoryExpanded(true);
-                        categoryScrollRef.current?.scrollTo({ left: 0, behavior: "auto" });
                       }
-                      if (Math.abs(deltaX) > Math.abs(deltaY) && deltaX > 18) {
-                        categorySwipeRef.current.moved = true;
+                      if (Math.abs(deltaX) > Math.abs(deltaY) && deltaX > 50) {
                         setCategoryExpanded(false);
-                        categoryScrollRef.current?.scrollTo({ left: 0, behavior: "auto" });
-                      }
-                      e.currentTarget.releasePointerCapture?.(e.pointerId);
-                    }}
-                    onPointerCancel={() => {
-                      categorySwipeRef.current.moved = false;
-                    }}
-                    onScroll={(e) => {
-                      if (!categoryExpanded && e.currentTarget.scrollLeft > 4) {
-                        categorySwipeRef.current.moved = true;
-                        setCategoryExpanded(true);
-                        requestAnimationFrame(() => {
-                          categoryScrollRef.current?.scrollTo({ left: 0, behavior: "auto" });
-                        });
                       }
                     }}
                   >
-                    <div
-                      className="grid gap-x-2 gap-y-3"
-                      style={{
-                        gridTemplateColumns: categoryExpanded
-                          ? "repeat(5, minmax(0, 1fr))"
-                          : `repeat(${HOME_CATEGORIES.length}, 20%)`,
-                        width: "100%",
-                        transition: "grid-template-columns 0.3s ease",
-                      }}
-                    >
-                      {HOME_CATEGORIES.map((item) => (
+                    <div className="grid grid-cols-5 gap-x-2 gap-y-4">
+                      {HOME_CATEGORIES.map((item, idx) => {
+                        const CategoryIcon = item.icon;
+                        return (
                         <button
                           key={item.label}
-                          className="flex h-[76px] flex-col items-center gap-1 p-1 active:scale-95 transition-transform"
-                          style={{ height: HOME_CATEGORY_ROW_HEIGHT }}
-                          onClick={(e) => {
-                            if (categorySwipeRef.current.moved) {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              categorySwipeRef.current.moved = false;
-                              return;
-                            }
-                            openCategory(item.category, homeTab, item.keyword, item.label)
-                          }}
+                          className="flex min-h-[68px] flex-col items-center gap-1.5 active:scale-95 transition-transform"
+                          onClick={() =>
+                            openCategory(item.category, homeTab, undefined, item.label, item.label)
+                          }
                         >
-                          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white text-2xl shadow-soft">
-                            {item.icon}
+                          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white shadow-soft text-coral">
+                            <CategoryIcon size={22} strokeWidth={2} />
                           </div>
-                          <span className="w-full text-center text-[11px] leading-4 text-ink">
-                            {item.label}
-                          </span>
+                          <span className="text-[11px] text-quiet font-medium">{item.label}</span>
                         </button>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
 
-                  <div className="mt-2 flex items-center justify-center">
+                  <div className="mt-2 flex items-center justify-center px-2">
                     <button
                       type="button"
-                      className="h-1.5 w-16 rounded-full bg-gray-100 overflow-hidden"
+                      className="h-1.5 w-full max-w-[200px] rounded-full overflow-hidden bg-[#efefef]"
                       onClick={() => setCategoryExpanded((v) => !v)}
                       aria-label="展开或收起分类"
                     >
                       <span
                         className="block h-full rounded-full bg-primary transition-all duration-300"
-                        style={{ width: categoryExpanded ? "100%" : "20%" }}
+                        style={{
+                          width: categoryExpanded ? "100%" : "20%",
+                        }}
                       />
                     </button>
                   </div>
@@ -1877,15 +2247,15 @@ export default function MoonCartApp() {
                 <div className="mt-4 grid grid-cols-5 gap-2">
                   {(homeTab === "takeout"
                     ? [
-                        { icon: "🍔", label: "快餐便当", category: "外卖", keyword: "汉堡|炸鸡|拌饭|套餐|饭|卷|鸡|堡" },
-                        { icon: "🧋", label: "奶茶饮品", category: "外卖", keyword: "奶茶|茶|咖啡|奶|饮|果汁|柠" },
-                        { icon: "🍢", label: "烧烤炸串", category: "外卖", keyword: "烤|炸|串|螺蛳|小龙虾|虾" },
-                        { icon: "🍰", label: "蛋糕甜点", category: "外卖", keyword: "蛋糕|甜|布丁|披萨|芝士" },
-                        { icon: "🍜", label: "面食粥品", category: "外卖", keyword: "面|粥|粉|意面|螺" },
-                        { icon: "🍣", label: "日料寿司", category: "外卖", keyword: "寿司|日料|刺身|日式" },
-                        { icon: "🍕", label: "披萨意面", category: "外卖", keyword: "披萨|意面|芝士|西餐" },
-                        { icon: "🥡", label: "中式正餐", category: "外卖", keyword: "火锅|香锅|冒菜|锅|中餐|炒|炖" },
-                        { icon: "🍟", label: "西式快餐", category: "外卖", keyword: "薯|汉堡|鸡|堡|快餐" },
+                        { icon: "🍔", label: "快餐便当", category: "外卖", subCategory: "快餐便当" },
+                        { icon: "🧋", label: "奶茶饮品", category: "外卖", subCategory: "奶茶饮品" },
+                        { icon: "🍢", label: "烧烤炸串", category: "外卖", subCategory: "烧烤炸串" },
+                        { icon: "🍰", label: "蛋糕甜点", category: "外卖", subCategory: "蛋糕甜点" },
+                        { icon: "🍜", label: "面食粥品", category: "外卖", subCategory: "面食粥品" },
+                        { icon: "🍣", label: "日料寿司", category: "外卖", subCategory: "日料寿司" },
+                        { icon: "🍕", label: "披萨意面", category: "外卖", subCategory: "披萨意面" },
+                        { icon: "🥡", label: "中式正餐", category: "外卖", subCategory: "中式正餐" },
+                        { icon: "🍟", label: "西式快餐", category: "外卖", subCategory: "西式快餐" },
                         { icon: "🛍", label: "全部", category: undefined, keyword: "" },
                       ]
                     : [
@@ -1905,18 +2275,20 @@ export default function MoonCartApp() {
                       key={item.label}
                       className="flex flex-col items-center gap-1.5 p-2 active:scale-95 transition-transform"
                       onClick={() => {
-                        const i = item as { action?: string; category?: string; keyword?: string; label?: string };
+                        const i = item as { action?: string; category?: string; keyword?: string; label?: string; subCategory?: string };
                         if (i.action === "flight") {
                           setView("flight");
+                        } else if (homeTab === "takeout") {
+                          openTakeoutShops(i.subCategory);
                         } else {
-                          openCategory(i.category, homeTab, i.keyword, i.label);
+                          openCategory(i.category, homeTab, i.keyword, i.label, i.subCategory);
                         }
                       }}
                     >
-                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-2xl shadow-soft">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-2xl shadow-soft">
                         {item.icon}
                       </div>
-                      <span className="text-[11px] text-ink">{item.label}</span>
+                      <span className="text-[11px] text-quiet">{item.label}</span>
                     </button>
                   ))}
                 </div>
@@ -1933,18 +2305,14 @@ export default function MoonCartApp() {
                   <button
                     disabled={!blindBoxCanOpen || blindBoxOpening}
                     onClick={() => openBlindBox()}
-                    className={`w-full rounded-[24px] p-5 text-left transition-all shadow-soft ${
+                    className={`w-full rounded-2xl p-5 text-left transition-all shadow-soft ${
                       blindBoxCanOpen
                         ? "bg-white active:scale-[0.98]"
                         : "bg-white/60 opacity-60"
                     }`}
                   >
                     <div className="flex items-center gap-4">
-                      <div className={`h-20 w-20 shrink-0 rounded-[20px] flex items-center justify-center text-5xl ${
-                        blindBoxCanOpen
-                          ? "bg-primary/10"
-                          : "bg-black/[0.03]"
-                      }`}>
+                      <div className="h-20 w-20 shrink-0 rounded-[20px] flex items-center justify-center text-5xl bg-gold">
                         {blindBoxCanOpen ? "🎁" : "🔒"}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -1953,10 +2321,10 @@ export default function MoonCartApp() {
                           {blindBoxCanOpen ? "点我开启今日惊喜" : "明天再来开启新的惊喜"}
                         </div>
                         <div className="mt-2 flex items-center gap-2">
-                          <span className="inline-block rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-primary">
+                          <span className="inline-block rounded-full bg-coral/10 px-2.5 py-0.5 text-[11px] font-medium text-coral-deep">
                             1000+款惊喜
                           </span>
-                          <span className="inline-block rounded-full bg-black/[0.05] px-2.5 py-0.5 text-[11px] font-medium text-quiet">
+                          <span className="inline-block rounded-full bg-black/[0.03] px-2.5 py-0.5 text-[11px] font-medium text-muted">
                             {blindBoxCanOpen ? "今日可开" : "明日再来"}
                           </span>
                         </div>
@@ -1975,76 +2343,158 @@ export default function MoonCartApp() {
                 </span>
               </div>
               <div className="hide-scrollbar -mx-4 flex gap-3 overflow-x-auto px-4">
-                {products
-                  .filter((p) =>
+                {(() => {
+                  const raw = products.filter((p) =>
                     homeTab === "takeout"
-                      ? p.category === "外卖"
+                      ? p.category === "外卖" && p.shop
                       : homeTab === "travel"
                       ? p.category === "旅行"
-                      : p.category !== "盲盒"
-                  )
-                  .slice(
-                    homeTab === "takeout" || homeTab === "travel" ? 0 : 10,
-                    homeTab === "takeout" || homeTab === "travel" ? 10 : 20
-                  )
-                  .map((product) => (
-                    <button
+                      : channelCategories["index"].includes(p.category)
+                  );
+                  if (homeTab === "takeout") {
+                    const seen = new Set<string>();
+                    const deduped: Product[] = [];
+                    for (const p of raw) {
+                      if (p.shop && !seen.has(p.shop)) {
+                        seen.add(p.shop);
+                        deduped.push(p);
+                      }
+                    }
+                    return deduped.slice(0, 15).map((product) => (
+                      <div
+                        key={product.id}
+                        className="shrink-0 w-36 relative"
+                      >
+                        <button
+                          className="w-full rounded-[20px] bg-white p-2 text-left shadow-soft active:scale-[0.98] transition-transform"
+                          onClick={() => openTakeoutShop(product.shop!)}
+                        >
+                          <div className="relative flex h-32 w-full items-center justify-center rounded-[16px] bg-black/[0.03] text-6xl">
+                            {product.emoji}
+                            <span className="absolute left-2 top-2 rounded-full bg-primary/90 px-2 py-0.5 text-[10px] font-bold text-white">
+                              {product.shop}
+                            </span>
+                          </div>
+                          <div className="p-2">
+                            <div className="line-clamp-1 text-sm font-medium">
+                              {product.title.split("·").slice(1).join("·") || product.title}
+                            </div>
+                            <div className="mt-1.5 flex items-baseline gap-1">
+                              <span className="text-base font-semibold text-price">
+                                {money(product.price)}
+                              </span>
+                              <span className="text-[10px] text-quiet line-through">
+                                {money(product.price * 1.8)}
+                              </span>
+                            </div>
+                            <div className="mt-1 text-[10px] text-quiet">
+                              ⏱ 约30分钟
+                            </div>
+                          </div>
+                        </button>
+                        <button
+                          className="absolute bottom-2 right-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-primary shadow-md transition-transform active:scale-90"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (product.specs && product.specs.length > 0) {
+                              setQuickAddProduct(product);
+                              const defaultSpecs: Record<string, string> = {};
+                              product.specs?.forEach((spec) => {
+                                if (spec.options.length > 0) {
+                                  defaultSpecs[spec.label] = spec.options[0].name;
+                                }
+                              });
+                              setQuickAddSpecs(defaultSpecs);
+                            } else {
+                              addToCart(product);
+                            }
+                          }}
+                        >
+                          <ShoppingCart size={14} className="text-white" />
+                        </button>
+                      </div>
+                    ));
+                  }
+                  return raw
+                    .slice(
+                      homeTab === "travel" ? 0 : 10,
+                      homeTab === "travel" ? 10 : 20
+                    )
+                    .map((product) => (
+                    <div
                       key={product.id}
-                      className="shrink-0 w-36 rounded-[20px] bg-white p-2 text-left shadow-soft active:scale-[0.98] transition-transform"
-                      onClick={() => openProduct(product)}
+                      className="shrink-0 w-36 relative"
                     >
-                      <div className="flex h-32 w-full items-center justify-center rounded-[16px] bg-black/[0.03] text-6xl">
-                        {product.emoji}
-                      </div>
-                      <div className="p-2">
-                        <div className="line-clamp-1 text-sm font-medium">
-                          {product.title}
+                      <button
+                        className="w-full rounded-[20px] bg-white p-2 text-left shadow-soft active:scale-[0.98] transition-transform"
+                        onClick={() => openProduct(product)}
+                      >
+                        <div className="flex h-32 w-full items-center justify-center rounded-[16px] bg-black/[0.03] text-6xl">
+                          {product.emoji}
                         </div>
-                        <div className="mt-1.5 flex items-baseline gap-1">
-                          <span className="text-base font-semibold text-price">
-                            {money(product.price)}
-                          </span>
-                          <span className="text-[10px] text-quiet line-through">
-                            {money(product.price * 1.8)}
-                          </span>
+                        <div className="p-2">
+                          <div className="line-clamp-1 text-sm font-medium">
+                            {product.title}
+                          </div>
+                          <div className="mt-1.5 flex items-baseline gap-1">
+                            <span className="text-base font-semibold text-price">
+                              {money(product.price)}
+                            </span>
+                            <span className="text-[10px] text-quiet line-through">
+                              {money(product.price * 1.8)}
+                            </span>
+                          </div>
+                          {homeTab === "travel" && (
+                            <div className="mt-1 text-[10px] text-quiet">
+                              ⭐ 4.8分 已售2.3k
+                            </div>
+                          )}
                         </div>
-                        {homeTab === "takeout" && (
-                          <div className="mt-1 text-[10px] text-quiet">
-                            ⏱ 约30分钟
-                          </div>
-                        )}
-                        {homeTab === "travel" && (
-                          <div className="mt-1 text-[10px] text-quiet">
-                            ⭐ 4.8分 已售2.3k
-                          </div>
-                        )}
-                      </div>
-                    </button>
-                  ))}
+                      </button>
+                      <button
+                        className="absolute bottom-2 right-3 z-10 h-8 w-8 rounded-full bg-primary shadow-md flex items-center justify-center active:scale-90 transition-transform"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (product.specs && product.specs.length > 0) {
+                            setQuickAddProduct(product);
+                            const defaultSpecs: Record<string, string> = {};
+                            product.specs?.forEach((spec) => {
+                              if (spec.options.length > 0) {
+                                defaultSpecs[spec.label] = spec.options[0].name;
+                              }
+                            });
+                            setQuickAddSpecs(defaultSpecs);
+                          } else {
+                            addToCart(product);
+                          }
+                        }}
+                      >
+                        <ShoppingCart size={14} className="text-white" />
+                      </button>
+                    </div>
+                  ));
+                })()}
               </div>
 
               <div className="mt-6 mb-3 flex items-center justify-between">
                 <h2 className="text-lg font-semibold">
-                  {homeTab === "takeout" ? "🔥 为你推荐" : homeTab === "travel" ? "✨ 精选推荐" : "🔥 猜你喜欢"}
+                  {homeTab === "takeout" ? "⭐ 为你推荐" : homeTab === "travel" ? "🎫 精选推荐" : "❤️ 猜你喜欢"}
                 </h2>
                 <button
                   className="text-xs text-quiet"
-                  onClick={() => {
-                    setCategoryChannel(homeTab);
-                    setView("category");
-                  }}
+                  onClick={() => openRecommend()}
                 >
-                  更多 ›
+                  更多
                 </button>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 {products
                   .filter((p) =>
                     homeTab === "takeout"
-                      ? p.category === "外卖"
+                      ? p.category === "外卖" && p.shop
                       : homeTab === "travel"
                       ? p.category === "旅行"
-                      : p.category !== "盲盒"
+                      : channelCategories["index"].includes(p.category)
                   )
                   .slice(
                     homeTab === "takeout" || homeTab === "travel" ? 10 : 0,
@@ -2059,6 +2509,17 @@ export default function MoonCartApp() {
                         onClick={() => openProduct(product)}
                         onToggleFavorite={() => toggleFavorite(product)}
                         isFavorite={isFavorite(product.id)}
+                        onAddToCart={() => addToCart(product)}
+                        onQuickAdd={(p) => {
+                          setQuickAddProduct(p);
+                          const defaultSpecs: Record<string, string> = {};
+                          p.specs?.forEach((spec) => {
+                            if (spec.options.length > 0) {
+                              defaultSpecs[spec.label] = spec.options[0].name;
+                            }
+                          });
+                          setQuickAddSpecs(defaultSpecs);
+                        }}
                       />
                     );
                   })}
@@ -2075,6 +2536,7 @@ export default function MoonCartApp() {
                 <Search size={18} className="text-quiet" />
                 <input
                   type="text"
+                  maxLength={50}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="搜索商品名称"
@@ -2104,13 +2566,48 @@ export default function MoonCartApp() {
                         onClick={() => openProduct(product)}
                         onToggleFavorite={() => toggleFavorite(product)}
                         isFavorite={isFavorite(product.id)}
+                        onAddToCart={() => addToCart(product)}
+                        onQuickAdd={(p) => {
+                          setQuickAddProduct(p);
+                          const defaultSpecs: Record<string, string> = {};
+                          p.specs?.forEach((spec) => {
+                            if (spec.options.length > 0) {
+                              defaultSpecs[spec.label] = spec.options[0].name;
+                            }
+                          });
+                          setQuickAddSpecs(defaultSpecs);
+                        }}
                       />
                     ))}
                   </div>
                 ) : (
-                  <div className="py-16 text-center text-quiet">
-                    <div className="text-4xl mb-3">🔍</div>
-                    <div>没有找到相关商品</div>
+                  <div className="py-16 text-center">
+                    <div className="text-5xl mb-4">🤔</div>
+                    <div className="text-base font-medium text-ink mb-2">没有找到相关商品</div>
+                    <div className="text-sm text-quiet mb-6">
+                      换个关键词试试吧～
+                      <br />
+                      或者去心愿清单告诉我们你想要什么
+                      <br />
+                      我们会尽量满足你的愿望 ✨
+                    </div>
+                    <div className="flex flex-col gap-2 px-8">
+                      <button
+                        className="w-full rounded-full bg-primary py-3 text-sm font-semibold text-white shadow-[0_4px_12px_rgba(255,80,0,0.2)]"
+                        onClick={() => {
+                          setSearchQuery("");
+                          setView("wish");
+                        }}
+                      >
+                        去心愿清单许愿
+                      </button>
+                      <button
+                        className="w-full rounded-full bg-black/[0.04] py-3 text-sm font-medium text-ink"
+                        onClick={() => setSearchQuery("")}
+                      >
+                        清除搜索
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -2164,15 +2661,18 @@ export default function MoonCartApp() {
                   setSelectedCategory(undefined);
                   setSubKeyword("");
                   setListTitle("全部商品");
+                  setSelectedSubCategory(undefined);
                 }}
-                className={`whitespace-nowrap rounded-full px-4 py-2 text-sm ${!selectedCategory && !subKeyword ? "bg-primary text-white" : "bg-white text-ink"}`}
+                className={`whitespace-nowrap rounded-full px-4 py-2 text-sm ${!selectedCategory && !subKeyword && !selectedSubCategory ? "bg-primary text-white" : "bg-white text-ink"}`}
               >
                 全部
               </button>
-              {subCategoriesByChannel[listChannel].map((sub) => {
+              {!listTitle?.includes("搜索") && subCategoriesByChannel[listChannel].map((sub) => {
                 const active =
-                  (sub.category ?? undefined) === (selectedCategory ?? undefined) &&
-                  (sub.keyword ?? "") === subKeyword;
+                  selectedSubCategory === sub.label ||
+                  (!selectedSubCategory &&
+                    (sub.category ?? undefined) === (selectedCategory ?? undefined) &&
+                    (sub.keyword ?? "") === subKeyword);
                 return (
                   <button
                     key={sub.label}
@@ -2181,6 +2681,7 @@ export default function MoonCartApp() {
                       setSelectedCategory(sub.category);
                       setSubKeyword(sub.keyword ?? "");
                       setListTitle(sub.label);
+                      setSelectedSubCategory(sub.subCategory ?? sub.label);
                     }}
                     className={`whitespace-nowrap rounded-full px-4 py-2 text-sm ${active ? "bg-primary text-white" : "bg-white text-ink"}`}
                   >
@@ -2195,8 +2696,217 @@ export default function MoonCartApp() {
                   key={product.id}
                   product={product}
                   onClick={() => openProduct(product)}
+                  onAddToCart={() => addToCart(product)}
+                  onQuickAdd={(p) => {
+                    setQuickAddProduct(p);
+                    const defaultSpecs: Record<string, string> = {};
+                    p.specs?.forEach((spec) => {
+                      if (spec.options.length > 0) {
+                        defaultSpecs[spec.label] = spec.options[0].name;
+                      }
+                    });
+                    setQuickAddSpecs(defaultSpecs);
+                  }}
                 />
               ))}
+            </div>
+          </Screen>
+        )}
+
+        {view === "takeoutShops" && (
+          <Screen key="takeoutShops">
+            <Header
+              title={listTitle || "美食外卖"}
+              onBack={() => setView("home")}
+              right={
+                <CartButton count={cartCount} onClick={() => setView("cart")} />
+              }
+            />
+            <div className="mt-3 flex items-center gap-2 rounded-full bg-white px-4 py-3 shadow-soft">
+              <Search size={16} className="text-quiet" />
+              <input
+                type="text"
+                maxLength={50}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === "Enter" && searchQuery.trim()) {
+                    setView("list");
+                  }
+                }}
+                placeholder="搜索店铺或商品"
+                className="flex-1 bg-transparent outline-none text-sm placeholder:text-quiet"
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery("")} className="text-quiet">
+                  <X size={16} />
+                </button>
+              )}
+            </div>
+            <div className="hide-scrollbar -mx-4 mt-3 flex gap-2 overflow-x-auto px-4">
+              <button
+                onClick={() => openTakeoutShops(undefined)}
+                className={`whitespace-nowrap rounded-full px-4 py-2 text-sm ${!takeoutSubCategory ? "bg-primary text-white" : "bg-white text-ink"}`}
+              >
+                全部
+              </button>
+              <button onClick={() => openTakeoutShops("快餐便当")} className={`whitespace-nowrap rounded-full px-4 py-2 text-sm ${takeoutSubCategory === "快餐便当" ? "bg-primary text-white" : "bg-white text-ink"}`}>快餐便当</button>
+              <button onClick={() => openTakeoutShops("奶茶饮品")} className={`whitespace-nowrap rounded-full px-4 py-2 text-sm ${takeoutSubCategory === "奶茶饮品" ? "bg-primary text-white" : "bg-white text-ink"}`}>奶茶饮品</button>
+              <button onClick={() => openTakeoutShops("烧烤炸串")} className={`whitespace-nowrap rounded-full px-4 py-2 text-sm ${takeoutSubCategory === "烧烤炸串" ? "bg-primary text-white" : "bg-white text-ink"}`}>烧烤炸串</button>
+              <button onClick={() => openTakeoutShops("蛋糕甜点")} className={`whitespace-nowrap rounded-full px-4 py-2 text-sm ${takeoutSubCategory === "蛋糕甜点" ? "bg-primary text-white" : "bg-white text-ink"}`}>蛋糕甜点</button>
+              <button onClick={() => openTakeoutShops("面食粥品")} className={`whitespace-nowrap rounded-full px-4 py-2 text-sm ${takeoutSubCategory === "面食粥品" ? "bg-primary text-white" : "bg-white text-ink"}`}>面食粥品</button>
+              <button onClick={() => openTakeoutShops("日料寿司")} className={`whitespace-nowrap rounded-full px-4 py-2 text-sm ${takeoutSubCategory === "日料寿司" ? "bg-primary text-white" : "bg-white text-ink"}`}>日料寿司</button>
+              <button onClick={() => openTakeoutShops("披萨意面")} className={`whitespace-nowrap rounded-full px-4 py-2 text-sm ${takeoutSubCategory === "披萨意面" ? "bg-primary text-white" : "bg-white text-ink"}`}>披萨意面</button>
+              <button onClick={() => openTakeoutShops("中式正餐")} className={`whitespace-nowrap rounded-full px-4 py-2 text-sm ${takeoutSubCategory === "中式正餐" ? "bg-primary text-white" : "bg-white text-ink"}`}>中式正餐</button>
+              <button onClick={() => openTakeoutShops("西式快餐")} className={`whitespace-nowrap rounded-full px-4 py-2 text-sm ${takeoutSubCategory === "西式快餐" ? "bg-primary text-white" : "bg-white text-ink"}`}>西式快餐</button>
+            </div>
+            <div className="mt-3 space-y-3 pb-4">
+              {getTakeoutShops(takeoutSubCategory).map((shop) => (
+                <button
+                  key={shop.name}
+                  onClick={() => openTakeoutShop(shop.name)}
+                  className="w-full rounded-[20px] bg-white p-4 shadow-soft active:scale-[0.98] transition-transform"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-primary/10 text-3xl">
+                      {shop.image}
+                    </div>
+                    <div className="flex-1 text-left">
+                      <div className="font-semibold">{shop.name}</div>
+                      <div className="mt-1 flex items-center gap-3 text-xs text-quiet">
+                        <span className="flex items-center gap-0.5">
+                          {[1, 2, 3, 4, 5].map((i) => {
+                            const full = shop.rating >= i;
+                            const half = !full && shop.rating >= i - 0.5;
+                            return (
+                              <span key={i} className="relative inline-block w-3 h-3">
+                                <Star size={12} className="text-yellow-200" />
+                                {(full || half) && (
+                                  <span
+                                    className="absolute top-0 left-0 overflow-hidden"
+                                    style={{ width: full ? "100%" : "50%" }}
+                                  >
+                                    <Star size={12} fill="#FFD700" className="text-yellow-500" />
+                                  </span>
+                                )}
+                              </span>
+                            );
+                          })}
+                          <span className="ml-0.5 text-yellow-600 font-medium">{shop.rating}</span>
+                        </span>
+                        <span>月售{shop.sales}</span>
+                        <span>{shop.deliveryTime}</span>
+                      </div>
+                    </div>
+                    <ChevronRight size={20} className="text-quiet" />
+                  </div>
+                </button>
+              ))}
+            </div>
+          </Screen>
+        )}
+
+        {view === "takeoutShop" && (
+          <Screen key="takeoutShop">
+            <Header
+              title={selectedShop || "店铺详情"}
+              onBack={() => setView("takeoutShops")}
+              right={
+                <CartButton count={cartCount} onClick={() => setView("cart")} />
+              }
+            />
+            <div className="mt-3 flex items-center gap-2 rounded-full bg-white px-4 py-3 shadow-soft">
+              <Search size={16} className="text-quiet" />
+              <input
+                type="text"
+                maxLength={50}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="今晚想'买'点什么"
+                className="flex-1 bg-transparent outline-none text-sm placeholder:text-quiet"
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery("")} className="text-quiet">
+                  <X size={16} />
+                </button>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-3 mt-3 pb-4">
+              {getShopProducts(selectedShop || "").map((product) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  onClick={() => openProduct(product)}
+                  onAddToCart={() => addToCart(product)}
+                  onQuickAdd={(p) => {
+                    setQuickAddProduct(p);
+                    const defaultSpecs: Record<string, string> = {};
+                    p.specs?.forEach((spec) => {
+                      if (spec.options.length > 0) {
+                        defaultSpecs[spec.label] = spec.options[0].name;
+                      }
+                    });
+                    setQuickAddSpecs(defaultSpecs);
+                  }}
+                />
+              ))}
+            </div>
+          </Screen>
+        )}
+
+        {view === "recommend" && (
+          <Screen key="recommend">
+            <Header
+              title={listTitle || "猜你喜欢"}
+              onBack={() => setView("home")}
+              right={
+                <CartButton count={cartCount} onClick={() => setView("cart")} />
+              }
+            />
+            <div className="mt-3 flex items-center gap-2 rounded-full bg-white px-4 py-3 shadow-soft">
+              <Search size={16} className="text-quiet" />
+              <input
+                type="text"
+                maxLength={50}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === "Enter" && searchQuery.trim()) {
+                    openCategory(undefined, homeTab, searchQuery.trim(), "搜索结果");
+                  }
+                }}
+                placeholder="今晚想'买'点什么"
+                className="flex-1 bg-transparent outline-none text-sm placeholder:text-quiet"
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery("")} className="text-quiet">
+                  <X size={16} />
+                </button>
+              )}
+              {searchQuery && (
+                <button
+                  onClick={() => openCategory(undefined, homeTab, searchQuery.trim(), "搜索结果")}
+                  className="rounded-full bg-primary px-3 py-1 text-xs text-white"
+                >
+                  逛逛
+                </button>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-3 mt-3 pb-4">
+              {products
+                .filter((p) => {
+                  if (homeTab === "takeout") return p.category === "外卖";
+                  if (homeTab === "travel") return p.category === "旅行";
+                  return p.category !== "盲盒";
+                })
+                .filter((p) => !searchQuery.trim() || fuzzySearch([p], searchQuery.trim()).length > 0)
+                .map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    onClick={() => openProduct(product)}
+                  />
+                ))}
             </div>
           </Screen>
         )}
@@ -2205,7 +2915,7 @@ export default function MoonCartApp() {
           <Screen key="detail">
             <Header
               title="商品详情"
-              onBack={() => setView("list")}
+              onBack={() => setView(prevView)}
               right={
                 <CartButton count={cartCount} onClick={() => setView("cart")} />
               }
@@ -2217,6 +2927,16 @@ export default function MoonCartApp() {
                   <h2 className="text-2xl font-semibold leading-tight">
                     {selectedProduct.title}
                   </h2>
+                  {selectedProduct.shop && selectedProduct.category === "外卖" && (
+                    <button
+                      onClick={() => openTakeoutShop(selectedProduct.shop!)}
+                      className="mt-2 flex items-center gap-1 text-sm text-primary active:opacity-70"
+                    >
+                      <Store size={14} />
+                      <span>{selectedProduct.shop}</span>
+                      <ChevronRight size={14} />
+                    </button>
+                  )}
                   <p className="mt-2 text-sm text-quiet">
                     销量 {selectedProduct.sales} ·{" "}
                     {Math.floor(selectedProduct.id * 17 + 98)} 条评价
@@ -2427,7 +3147,7 @@ export default function MoonCartApp() {
                 className="flex-1 rounded-full bg-white px-5 py-4 font-semibold shadow-soft"
                 onClick={() => addToCart(selectedProduct, selectedSpecs, calculateSpecPrice(selectedProduct, selectedSpecs))}
               >
-                加入购物车
+                已下单
               </button>
               <button
                 className="flex-1 rounded-full bg-primary px-5 py-4 font-semibold text-white shadow-soft"
@@ -2445,103 +3165,254 @@ export default function MoonCartApp() {
 
         {view === "cart" && (
           <Screen key="cart">
-            <Header title="我的购物车" onBack={() => setView("home")} />
+            <Header title="购物车" onBack={() => setView("home")} />
+            {flashMessage && (
+              <div
+                className="fixed top-20 left-1/2 -translate-x-1/2 z-50 rounded-full bg-black/80 backdrop-blur-md px-5 py-2.5 text-sm text-white shadow-lg border border-white/10"
+                onClick={clearFlashMessage}
+              >
+                {flashMessage}
+              </div>
+            )}
             {cart.length === 0 ? (
               <EmptyCart onShop={() => openCategory(undefined)} />
             ) : (
               <>
-                <div className="space-y-3 pt-4">
+                <div className="space-y-3 pt-2">
                   {cart.map((item) => (
                     <div
                       key={item.id}
-                      className="flex gap-3 rounded-[24px] bg-white p-3 shadow-soft"
+                      className="flex gap-3 rounded-2xl bg-white p-3 items-start shadow-soft"
                     >
+                      <button
+                        onClick={() => toggleSelectItem(item.id)}
+                        className="self-center shrink-0"
+                      >
+                        <div
+                          className="w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all"
+                          style={{
+                            borderColor: selectedCartItems.has(item.id) ? '#FF5000' : '#636366',
+                            background: selectedCartItems.has(item.id) ? '#FF5000' : '#ffffff',
+                          }}
+                        >
+                        {selectedCartItems.has(item.id) && (
+                          <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                        </div>
+                      </button>
                       <ProductVisual product={item} compact />
                       <div className="min-w-0 flex-1">
-                        <div className="line-clamp-2 font-semibold">
-                          {item.title}
+                        <div className="flex items-center gap-2">
+                          <span className="line-clamp-1 font-semibold flex-1 min-w-0 text-sm">
+                            {item.title}
+                          </span>
+                          <span className="shrink-0 text-xs text-quiet">x{item.quantity}</span>
                         </div>
                         {item.selectedSpecs && Object.keys(item.selectedSpecs).length > 0 && (
-                          <div className="mt-1 flex flex-wrap gap-1">
-                            {Object.entries(item.selectedSpecs).map(([label, value]) => (
-                              <span key={label} className="text-xs text-quiet bg-black/[0.03] px-2 py-0.5 rounded-full">
-                                {value}
-                              </span>
-                            ))}
-                          </div>
+                          <button
+                            className="mt-1.5 text-left"
+                            onClick={() => {
+                              setEditingCartItem(item);
+                              setEditingSpecs({ ...item.selectedSpecs });
+                            }}
+                          >
+                            <span className="text-xs px-2.5 py-1 rounded-full bg-black/[0.05] text-quiet">
+                              {Object.values(item.selectedSpecs).join(" / ")} ›
+                            </span>
+                          </button>
                         )}
-                        <div className="mt-1 text-sm text-coral">
-                          {item.coupon}
-                        </div>
-                        <div className="mt-3 flex items-center justify-between">
-                          <span className="font-semibold">
-                            {money(item.finalPrice ?? item.price)}
-                          </span>
-                          <div className="flex items-center gap-2">
-                            <IconButton
-                              label="减少"
+                        <div className="mt-2.5 flex items-center justify-between">
+                          <div className="flex items-baseline gap-2">
+                            <span className="font-bold text-lg text-price">
+                              {money(
+                                canCheckout && selectedCartItems.has(item.id)
+                                  ? (item.finalPrice ?? item.price) * (1 - claimedCouponAmount / selectedTotal)
+                                  : item.finalPrice ?? item.price
+                              )}
+                            </span>
+                            {canCheckout && selectedCartItems.has(item.id) && (
+                              <span className="text-xs text-quiet line-through">
+                                {money(item.finalPrice ?? item.price)}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <button
                               onClick={() => changeQuantity(item.id, -1)}
+                              className="w-7 h-7 rounded-full flex items-center justify-center bg-black/[0.05] text-ink hover:bg-black/[0.08] transition-colors"
                             >
-                              <Minus size={15} />
-                            </IconButton>
-                            <span className="w-5 text-center text-sm">
+                              <Minus size={14} />
+                            </button>
+                            <span className="w-6 text-center text-sm font-medium">
                               {item.quantity}
                             </span>
-                            <IconButton
-                              label="增加"
+                            <button
                               onClick={() => changeQuantity(item.id, 1)}
+                              className="w-7 h-7 rounded-full flex items-center justify-center bg-black/[0.05] text-ink hover:bg-black/[0.08] transition-colors"
                             >
-                              <Plus size={15} />
-                            </IconButton>
-                            <IconButton
-                              label="删除"
+                              <Plus size={14} />
+                            </button>
+                            <button
                               onClick={() => removeFromCart(item.id)}
+                              className="w-7 h-7 rounded-full flex items-center justify-center text-quiet hover:text-coral transition-colors ml-1"
                             >
-                              <Trash2 size={15} />
-                            </IconButton>
+                              <Trash2 size={14} />
+                            </button>
                           </div>
                         </div>
                       </div>
                     </div>
                   ))}
                 </div>
-                <section className="mt-5 rounded-[28px] bg-white p-5 shadow-soft">
-                  <InfoRow label="商品总价" value={money(cartTotal)} />
-                  <InfoRow
-                    label="优惠金额"
-                    value={`-${money(discount)}`}
-                    tone="coral"
-                  />
-                  <InfoRow
-                    label="凑单提示"
-                    value={
-                      cartTotal < 89
-                        ? `再买 ${money(89 - cartTotal)} 即可包邮`
-                        : cartTotal < 300
-                          ? `再买 ${money(300 - cartTotal)} 可减 60 元`
-                          : "今晚已经很会买了"
-                    }
-                  />
-                  <div className="mt-5 flex items-end justify-between border-t border-black/5 pt-5">
-                    <span className="text-quiet">合计</span>
-                    <span className="text-3xl font-semibold">
-                      {money(finalTotal)}
+                {selectedCount > 0 && cartSelectedCategory && (
+                  <div className="mt-4 rounded-2xl bg-primary/10 px-4 py-3.5 flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-xl">🎫</span>
+                      <div className="text-sm">
+                        <span className="font-bold text-primary">领券凑单更划算</span>
+                        {couponAmount > 0 && (
+                          <div className="text-xs text-quiet mt-0.5">
+                            再买 <span className="text-primary font-semibold">{money(couponAmount)}</span> 可享9折
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      onClick={claimCoupon}
+                      className={`rounded-full px-4 py-2 text-xs font-bold ${
+                        claimedCouponAmount > 0
+                          ? "bg-black/[0.06] text-quiet"
+                          : "bg-primary text-white"
+                      }`}
+                    >
+                      {claimedCouponAmount > 0 ? "已领券" : "领券"}
+                    </button>
+                  </div>
+                )}
+                <section className="mt-5 rounded-[24px] bg-white p-5 shadow-soft">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-quiet">已选商品</span>
+                      <span className="font-medium">{selectedCount} 件</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-quiet">商品总价</span>
+                      <span className="font-medium">{money(selectedTotal)}</span>
+                    </div>
+                    {claimedCouponAmount > 0 && (
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-quiet">优惠券</span>
+                        <span className="text-primary font-medium">-{money(claimedCouponAmount)}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-4 pt-4 border-t border-black/5 flex items-end justify-between">
+                    <span className="text-quiet text-sm">合计</span>
+                    <span className="text-2xl font-bold text-price">
+                      {money(finalSelectedTotal)}
                     </span>
                   </div>
                 </section>
-                <div className="mt-5 grid grid-cols-2 gap-3">
+                <div className="mt-5 flex items-center gap-3 px-1">
                   <button
-                    className="rounded-full bg-white py-4 font-semibold shadow-soft"
-                    onClick={() => openCategory(undefined)}
+                    onClick={toggleSelectAll}
+                    className="flex items-center gap-2 shrink-0"
                   >
-                    继续逛逛
+                    <div
+                      className="w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all"
+                      style={{
+                        borderColor: isAllSelected ? '#FF5000' : '#636366',
+                        background: isAllSelected ? '#FF5000' : 'transparent',
+                      }}
+                    >
+                      {isAllSelected && (
+                        <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </div>
+                    <span className="text-sm text-quiet">全选</span>
                   </button>
-                  <button
-                    className="rounded-full bg-primary py-4 font-semibold text-white shadow-soft"
-                    onClick={() => startOrder(finalTotal, cart)}
-                  >
-                    立即下单
-                  </button>
+                  {selectedCount > 0 && (
+                    <button
+                      onClick={() => {
+                        selectedCartItems.forEach((id) => removeFromCart(id));
+                        setSelectedCartItems(new Set());
+                        setClaimedCouponAmount(0);
+                        setFlashMessage("已删除选中商品");
+                        setTimeout(() => setFlashMessage(""), 2000);
+                      }}
+                      className="flex items-center gap-1.5 shrink-0 text-quiet hover:text-coral transition-colors"
+                    >
+                      <Trash2 size={20} />
+                      <span className="text-sm">删除</span>
+                    </button>
+                  )}
+                  <div className="flex-1" />
+                  {selectedCount === 0 ? (
+                    <button
+                      className="rounded-full py-2.5 px-5 font-semibold text-white text-sm opacity-40 bg-primary"
+                      disabled
+                    >
+                      请选择
+                    </button>
+                  ) : mixedCategories ? (
+                    <button
+                      className="rounded-full py-2.5 px-5 font-semibold text-white text-sm bg-coral"
+                      onClick={() => {
+                        setFlashMessage("只能选择同一类商品结算哦");
+                        setTimeout(() => setFlashMessage(""), 2000);
+                      }}
+                    >
+                      同类结算
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <button
+                        className="rounded-full py-2.5 px-4 font-semibold text-sm text-primary border border-primary shrink-0"
+                        onClick={() => {
+                          if (claimedCouponAmount > 0 && couponAmount > 0) {
+                            setCouponModalOpen(true);
+                          } else if (claimedCouponAmount === 0) {
+                            claimCoupon();
+                            setTimeout(() => setCouponModalOpen(true), 300);
+                          }
+                        }}
+                      >
+                        {claimedCouponAmount > 0
+                          ? couponAmount <= 0
+                            ? "已凑单"
+                            : "去凑单"
+                          : "领券凑单"}
+                      </button>
+                      <button
+                        className="rounded-full py-2.5 px-5 font-bold text-white text-sm bg-primary shadow-soft shrink-0"
+                        onClick={() => {
+                          const total = canCheckout
+                            ? (cartSelectedCategory === "takeout"
+                                ? takeoutTotal
+                                : cartSelectedCategory === "travel"
+                                ? travelTotal
+                                : selectedTotal) - claimedCouponAmount
+                            : cartSelectedCategory === "takeout"
+                            ? takeoutTotal
+                            : cartSelectedCategory === "travel"
+                            ? travelTotal
+                            : selectedTotal;
+                          const items = cartSelectedCategory === "takeout"
+                            ? takeoutItems
+                            : cartSelectedCategory === "travel"
+                            ? travelItems
+                            : deliveryItems;
+                          startOrder(total, items);
+                        }}
+                      >
+                        {canCheckout ? "结算" : "直接结算"}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </>
             )}
@@ -2628,13 +3499,13 @@ export default function MoonCartApp() {
                         <div className="h-12 w-12 shrink-0 rounded-[10px] bg-black/[0.03] flex items-center justify-center text-2xl">
                           {item.emoji}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium truncate">
+                        <div className="flex-1 min-w-0 flex items-center gap-2">
+                          <span className="text-sm font-medium truncate">
                             {item.title}
-                          </div>
-                          <div className="text-xs text-quiet">
+                          </span>
+                          <span className="text-xs text-quiet shrink-0">
                             x{item.quantity}
-                          </div>
+                          </span>
                         </div>
                         <div className="text-sm font-semibold text-price">
                           {money(item.price * item.quantity)}
@@ -2644,33 +3515,35 @@ export default function MoonCartApp() {
                   </div>
                 </div>
 
-                {/* 分享区 */}
+                {/* 分享区 - 仅盲盒订单显示 */}
+                {isBlindBoxOrder && (
                 <div className="px-5 py-5">
                   <div className="flex items-center justify-between mb-3">
                     <div>
                       <div className="text-sm font-semibold">
-                        {isBlindBoxOrder ? "分享你的盲盒惊喜" : "分享你的购物快乐"}
+                        分享你的盲盒惊喜
                       </div>
                       <div className="text-xs text-quiet mt-0.5">
                         睡前逛逛 · Moon Cart
                       </div>
                     </div>
-                    <div className="text-2xl">{isBlindBoxOrder ? "🎁" : "🌙"}</div>
+                    <div className="text-2xl">🎁</div>
                   </div>
                   <button
                     className="w-full rounded-full bg-primary py-3.5 text-sm font-semibold text-white shadow-[0_4px_12px_rgba(255,80,0,0.2)] active:bg-primary/80"
                     onClick={async () => {
-                      setShareCardType(isBlindBoxOrder ? "blindbox" : "normal");
-                      const canvas = isBlindBoxOrder ? await drawBlindBoxShareCard() : await drawShareCard();
+                      setShareCardType("blindbox");
+                      const canvas = await drawBlindBoxShareCard();
                       if (canvas) {
                         setShareCardImage(canvas.toDataURL("image/jpeg", 0.9));
                         setSharePanelOpen(true);
                       }
                     }}
                   >
-                    {isBlindBoxOrder ? "分享惊喜卡片" : "分享卡片"}
+                    分享惊喜卡片
                   </button>
                 </div>
+                )}
               </section>
 
               <div className="mt-6 grid w-full grid-cols-2 gap-3">
@@ -2723,15 +3596,45 @@ export default function MoonCartApp() {
                     </span>
                     <span className="text-quiet text-sm">✏️</span>
                   </button>
-                  <div className="mt-1 text-xs font-medium text-quiet uppercase tracking-wide">
-                    我的购物历史
+                  <div className="mt-1.5 flex items-center gap-2">
+                    <button
+                      onClick={() => setView("memberLevel")}
+                      className="inline-flex items-center gap-1.5 active:opacity-70 rounded-full bg-black/[0.05] px-3 py-1"
+                    >
+                      <span className="text-sm">{getMemberLevel(stats.virtualSpend).icon}</span>
+                      <span className="text-[11px] font-medium text-quiet">{getMemberLevel(stats.virtualSpend).name}</span>
+                      <ChevronRight size={10} className="text-quiet" />
+                    </button>
                   </div>
-                  <div className="mt-1 text-2xl font-bold text-ink">
-                    {shortMoney(stats.virtualSpend)}
+                  <div className="mt-1.5 text-xs text-quiet">
+                    累计消费 <span className="font-semibold text-ink">{shortMoney(stats.virtualSpend)}</span>
                   </div>
                 </div>
               </div>
-              <div className="mt-5 grid grid-cols-4 gap-2">
+              {(() => {
+                const level = getMemberLevel(stats.virtualSpend);
+                const next = getNextLevel(stats.virtualSpend);
+                if (!next) return null;
+                const progress = ((stats.virtualSpend - level.threshold) / (next.threshold - level.threshold)) * 100;
+                return (
+                  <div className="mt-5">
+                    <div className="flex items-center justify-between text-xs text-quiet mb-2">
+                      <span>距离 {next.name}</span>
+                      <span>还需 {shortMoney(next.threshold - stats.virtualSpend)}</span>
+                    </div>
+                    <div className="h-2 w-full rounded-full overflow-hidden bg-black/[0.05]">
+                      <div
+                        className="h-full rounded-full bg-primary transition-all duration-500"
+                        style={{ width: `${Math.min(100, progress)}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })()}
+            </section>
+
+            <section className="mt-4 rounded-2xl bg-white p-5 shadow-soft">
+              <div className="grid grid-cols-4 gap-2">
                 <button
                   className="text-center"
                   onClick={() => setView("orders")}
@@ -2763,57 +3666,81 @@ export default function MoonCartApp() {
                   <div className="mt-1 text-xs text-quiet">收藏</div>
                 </button>
               </div>
-              <div className="mt-5 pt-5 border-t border-black/5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-ink">买过商品</span>
-                    <span className="text-xs text-quiet">{stats.purchases?.length ?? 0} 件</span>
-                  </div>
-                  <button
-                    className="text-xs text-primary font-medium"
-                    onClick={() => setView("orders")}
-                  >
-                    查看全部 ›
-                  </button>
+            </section>
+
+            <section className="mt-4 rounded-2xl bg-white p-5 shadow-soft">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-ink">最近逛逛</span>
+                  <span className="text-xs text-quiet">{stats.purchases?.length ?? 0} 次快乐</span>
                 </div>
-                <div className="mt-3 flex gap-2 overflow-x-auto hide-scrollbar">
-                  {(stats.purchases ?? []).slice(0, 5).map((item) => (
-                    <div
-                      key={item.id}
-                      className="shrink-0 w-14 h-14 rounded-[14px] bg-black/[0.03] flex items-center justify-center text-2xl"
-                    >
-                      {item.items?.[0]?.emoji || "🛒"}
-                    </div>
-                  ))}
-                  {(stats.purchases?.length ?? 0) === 0 && (
-                    <div className="text-sm text-quiet py-3">还没有购买记录</div>
-                  )}
-                </div>
-              </div>
-              <div className="mt-5">
                 <button
-                  className="w-full rounded-[16px] bg-primary px-4 py-3.5 text-sm font-semibold text-white shadow-[0_4px_12px_rgba(255,80,0,0.25)] active:opacity-80 transition-opacity"
-                  onClick={shareCard}
+                  className="text-xs text-primary font-medium"
+                  onClick={() => {
+                    setOrdersTab("all");
+                    setView("orders");
+                  }}
                 >
-                  分享卡片
+                  全部 ›
                 </button>
               </div>
+              <div className="flex gap-2 overflow-x-auto hide-scrollbar">
+                {(stats.purchases ?? []).slice(0, 5).map((item) => (
+                  <div
+                    key={item.id}
+                    className="shrink-0 w-14 h-14 rounded-[14px] bg-black/[0.03] flex items-center justify-center text-2xl"
+                  >
+                    {item.items?.[0]?.emoji || "🛒"}
+                  </div>
+                ))}
+                {(stats.purchases?.length ?? 0) === 0 && (
+                  <div className="text-sm text-quiet py-3">还没有逛逛记录</div>
+                )}
+              </div>
+            </section>
+
+            <section className="mt-4">
+              <button
+                className="w-full rounded-[16px] bg-primary py-4 text-sm font-semibold text-white shadow-[0_4px_12px_rgba(255,80,0,0.25)] active:opacity-80 transition-opacity"
+                onClick={shareCard}
+              >
+                分享我的快乐
+              </button>
             </section>
             <section className="mt-4 rounded-[28px] bg-white p-5 shadow-soft">
-              <div className="mb-3 font-semibold">徽章</div>
-              <div className="flex flex-wrap gap-2">
-                {(stats.badges.length
-                  ? stats.badges
-                  : ["今晚第一单", "深夜常客", "虚拟大买家"]
-                ).map((badge, index) => (
-                  <span
-                    key={badge}
-                    className={`rounded-full px-3 py-2 text-sm ${stats.badges.includes(badge) ? "bg-coral/10 text-coral" : "bg-black/5 text-quiet"}`}
+              <div className="mb-4 flex items-center justify-between">
+                <span className="font-semibold">我的徽章</span>
+                {earnedBadges.length > 10 && (
+                  <button
+                    onClick={() => setShowAllBadges(!showAllBadges)}
+                    className="text-sm text-primary"
                   >
-                    {index === 0 ? "🏅" : index === 1 ? "🌙" : "🛒"} {badge}
-                  </span>
-                ))}
+                    {showAllBadges ? "收起" : "查看更多"}
+                  </button>
+                )}
               </div>
+              {earnedBadges.length > 0 ? (
+                <div className="flex flex-wrap justify-between gap-y-3">
+                  {(showAllBadges ? earnedBadges : earnedBadges.slice(0, 10)).map((badge) => (
+                    <div
+                      key={badge.id}
+                      className="flex w-[18%] flex-col items-center"
+                      title={badge.description}
+                    >
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-xl">
+                        {badge.icon}
+                      </div>
+                      <span className="mt-1 w-full truncate text-center text-[10px] text-text">
+                        {badge.name}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-8 text-center text-sm text-quiet">
+                  还没有获得徽章，快去逛逛吧～
+                </div>
+              )}
             </section>
             <section className="mt-4 rounded-[28px] bg-white p-5 shadow-soft">
               <div className="mb-3 flex items-center justify-between">
@@ -2862,19 +3789,13 @@ export default function MoonCartApp() {
 
         {view === "orders" && (
           <Screen key="orders">
-            <Header title="我的订单" onBack={() => setView("mine")} />
+            <Header title="我的逛逛" onBack={() => setView("mine")} />
             <section className="mt-4">
-              <div className="flex items-center justify-between mb-3 px-1">
-                <span className="font-semibold">全部订单</span>
-                <span className="text-xs text-quiet">
-                  共 {stats.purchases?.length ?? 0} 单
-                </span>
-              </div>
               {activeDeliveries.length > 0 && (
                 <div className="mb-4 rounded-[20px] bg-white p-4 shadow-[0_6px_20px_rgba(0,0,0,0.06)]">
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-sm font-semibold text-primary">
-                      配送中
+                      🚀 配送中 ({activeDeliveries.length})
                     </span>
                     <button
                       className="text-xs text-quiet"
@@ -2918,37 +3839,106 @@ export default function MoonCartApp() {
                   </div>
                 </div>
               )}
-              <div className="flex gap-2 mb-4 overflow-x-auto pb-1 -mx-5 px-5">
-                {[
-                  { label: "全部", value: "all" },
-                  { label: "近7天", value: "7d" },
-                  { label: "近30天", value: "30d" },
-                  { label: "今年", value: "year" },
-                ].map((filter) => (
+              <div className="flex items-center gap-2 rounded-full bg-white px-4 py-3 shadow-soft mb-4">
+                <Search size={18} className="text-quiet shrink-0" />
+                <input
+                  type="text"
+                  value={orderSearchQuery}
+                  onChange={(e) => setOrderSearchQuery(e.target.value)}
+                  placeholder="搜索订单号"
+                  className="flex-1 bg-transparent outline-none text-sm placeholder:text-quiet"
+                />
+                {orderSearchQuery && (
                   <button
-                    key={filter.value}
-                    onClick={() => setOrderFilter(filter.value)}
+                    onClick={() => setOrderSearchQuery("")}
+                    className="text-quiet shrink-0"
+                  >
+                    <X size={16} />
+                  </button>
+                )}
+              </div>
+              <div className="flex gap-2 mb-3 overflow-x-auto pb-1 -mx-5 px-5">
+                {[
+                  { label: "全部逛逛", value: "all" },
+                  { label: "快递逛逛", value: "delivery" },
+                  { label: "外卖逛逛", value: "takeout" },
+                  { label: "旅游逛逛", value: "travel" },
+                ].map((tab) => (
+                  <button
+                    key={tab.value}
+                    onClick={() => setOrdersTab(tab.value as "all" | "delivery" | "takeout" | "travel")}
                     className={`shrink-0 rounded-full px-4 py-1.5 text-sm transition-all ${
-                      orderFilter === filter.value
+                      ordersTab === tab.value
                         ? "bg-primary text-white shadow-[0_4px_12px_rgba(255,80,0,0.2)]"
                         : "bg-white text-quiet"
                     }`}
                   >
-                    {filter.label}
+                    {tab.label}
                   </button>
                 ))}
               </div>
-              {filteredPurchases.length ? (
+              <div className="flex gap-2 mb-4 overflow-x-auto pb-1 -mx-5 px-5">
+                {[
+                  { label: "全部状态", value: "all" },
+                  { label: "待付款", value: "pending" },
+                  { label: "配送中", value: "shipping" },
+                  { label: "已完成", value: "completed" },
+                  { label: "售后中", value: "aftersale" },
+                ].map((status) => (
+                  <button
+                    key={status.value}
+                    onClick={() => setOrderStatusFilter(status.value as "all" | "pending" | "shipping" | "completed" | "aftersale")}
+                    className={`shrink-0 rounded-full px-3 py-1 text-xs transition-all ${
+                      orderStatusFilter === status.value
+                        ? "bg-black/10 text-ink"
+                        : "bg-black/[0.03] text-quiet"
+                    }`}
+                  >
+                    {status.label}
+                  </button>
+                ))}
+              </div>
+              {ordersTab === "all" && (
+                <div className="flex gap-2 mb-4 overflow-x-auto pb-1 -mx-5 px-5">
+                  {[
+                    { label: "全部时间", value: "all" },
+                    { label: "近7天", value: "7d" },
+                    { label: "近30天", value: "30d" },
+                    { label: "今年", value: "year" },
+                  ].map((filter) => (
+                    <button
+                      key={filter.value}
+                      onClick={() => setOrderFilter(filter.value)}
+                      className={`shrink-0 rounded-full px-3 py-1 text-xs transition-all ${
+                        orderFilter === filter.value
+                          ? "bg-black/10 text-ink"
+                          : "bg-black/[0.03] text-quiet"
+                      }`}
+                    >
+                      {filter.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="flex items-center justify-between mb-3 px-1">
+                <span className="font-semibold">
+                  {ordersTab === "all" ? "全部逛逛" : ordersTab === "delivery" ? "快递逛逛" : ordersTab === "takeout" ? "外卖逛逛" : "旅游逛逛"}
+                </span>
+                <span className="text-xs text-quiet">
+                  共 {filteredOrdersByTab.length} 次
+                </span>
+              </div>
+              {filteredOrdersByTab.length ? (
                 <div className="space-y-3">
-                  {filteredPurchases.map((record) => (
+                  {filteredOrdersByTab.map((record) => (
                     <OrderCard key={record.id} record={record} onAfterSale={applyAfterSale} onAfterSaleComplete={completeAfterSale} />
                   ))}
                 </div>
               ) : (
                 <div className="rounded-[20px] bg-white/70 backdrop-blur-md border border-white/50 p-8 text-center">
-                  <div className="text-4xl">📦</div>
+                  <div className="text-4xl">🛍️</div>
                   <p className="mt-3 text-sm text-quiet">
-                    暂无订单记录
+                    还没有逛逛记录
                   </p>
                 </div>
               )}
@@ -2987,6 +3977,84 @@ export default function MoonCartApp() {
                 </button>
               </div>
             )}
+          </Screen>
+        )}
+
+        {view === "memberLevel" && (
+          <Screen key="memberLevel">
+            <Header title="会员等级" onBack={() => setView("mine")} />
+            <section className="mt-4 rounded-[28px] bg-white p-6 shadow-soft">
+              <div className="flex items-center gap-4">
+                <div className={`flex h-16 w-16 items-center justify-center rounded-full text-3xl ${getMemberLevel(stats.virtualSpend).bgColor}`}>
+                  {getMemberLevel(stats.virtualSpend).icon}
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg font-semibold">{getMemberLevel(stats.virtualSpend).name}</span>
+                    <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] text-white">当前</span>
+                  </div>
+                  <div className="mt-1 text-sm text-quiet">
+                    累计消费 <span className="font-semibold text-ink">{shortMoney(stats.virtualSpend)}</span>
+                  </div>
+                </div>
+              </div>
+              {(() => {
+                const level = getMemberLevel(stats.virtualSpend);
+                const next = getNextLevel(stats.virtualSpend);
+                if (!next) return null;
+                const progress = ((stats.virtualSpend - level.threshold) / (next.threshold - level.threshold)) * 100;
+                return (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-between text-xs text-quiet mb-2">
+                      <span>距离 {next.name}</span>
+                      <span>还需 {shortMoney(next.threshold - stats.virtualSpend)}</span>
+                    </div>
+                    <div className="h-2 w-full rounded-full bg-black/[0.06] overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{ width: `${Math.min(100, progress)}%`, background: level.gradient }}
+                      />
+                    </div>
+                  </div>
+                );
+              })()}
+            </section>
+            <section className="mt-4 rounded-[28px] bg-white p-5 shadow-soft">
+              <div className="mb-3 font-semibold">等级权益</div>
+              <div className="space-y-3">
+                {MEMBER_LEVELS.map((level) => {
+                  const current = getMemberLevel(stats.virtualSpend);
+                  const isCurrent = current.name === level.name;
+                  const isUnlocked = stats.virtualSpend >= level.threshold;
+                  return (
+                    <div
+                      key={level.name}
+                      className={`flex items-center gap-3 rounded-[16px] p-3 ${isCurrent ? "bg-primary/5 border border-primary/20" : isUnlocked ? "bg-black/[0.03]" : "bg-black/[0.02] opacity-50"}`}
+                    >
+                      <div className={`flex h-10 w-10 items-center justify-center rounded-full text-xl ${level.bgColor}`}>
+                        {level.icon}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{level.name}</span>
+                          {isCurrent && (
+                            <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] text-white">当前</span>
+                          )}
+                        </div>
+                        <div className="mt-0.5 text-xs text-quiet">
+                          累计消费 ≥ {shortMoney(level.threshold)}
+                        </div>
+                      </div>
+                      {isUnlocked ? (
+                        <span className="text-green-500 text-sm">✓ 已达成</span>
+                      ) : (
+                        <span className="text-quiet text-xs">还差 {shortMoney(level.threshold - stats.virtualSpend)}</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
           </Screen>
         )}
 
@@ -3633,6 +4701,16 @@ export default function MoonCartApp() {
                   </div>
                   <button
                     onClick={() => {
+                      addToCart(flightCartItem as any);
+                      setFlashMessage("已加入购物车");
+                      setTimeout(() => setFlashMessage(""), 2000);
+                    }}
+                    className="flex-1 rounded-full py-3.5 text-base font-semibold text-primary border-2 border-primary active:scale-[0.98] transition-transform bg-white"
+                  >
+                    加入购物车
+                  </button>
+                  <button
+                    onClick={() => {
                       startOrder(flightTotalPrice, [flightCartItem]);
                       setView("delivery");
                     }}
@@ -3701,7 +4779,7 @@ export default function MoonCartApp() {
                     onClick={addBlindBoxToCart}
                     className="w-full rounded-full bg-black/[0.06] py-3.5 text-sm font-semibold"
                   >
-                    加入购物车
+                    已下单
                   </button>
                   <button
                     onClick={() => {
@@ -4049,883 +5127,5 @@ export default function MoonCartApp() {
         document.body
       )}
     </main>
-  );
-}
-
-function CriticalStyles() {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) return null;
-
-  return (
-    <style>{`
-      .moon-app{box-sizing:border-box;min-height:100vh;width:100%;max-width:460px;margin:0 auto;padding:16px 16px 96px;background:var(--bg-primary);color:var(--text-primary);box-shadow:0 18px 45px rgba(17,17,17,.08);font-family:HarmonyOS Sans,Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;transition:background 0.3s ease,color 0.3s ease}
-      .dark .moon-app{box-shadow:0 18px 45px rgba(0,0,0,.5)}
-      .moon-app *{box-sizing:border-box}
-      .moon-app button,.moon-app input,.moon-app textarea{font:inherit}
-      .moon-app button{border:0;cursor:pointer;background:transparent;color:inherit;-webkit-tap-highlight-color:transparent}
-      .moon-app .fixed{position:fixed}.moon-app .absolute{position:absolute}.moon-app .relative{position:relative}.moon-app .sticky{position:sticky}
-      .moon-app .top-0{top:0}.moon-app .z-20{z-index:20}.moon-app .z-30{z-index:30}.moon-app .z-40{z-index:40}.moon-app .inset-x-0{left:0;right:0}.moon-app .bottom-0{bottom:0}.moon-app .bottom-3{bottom:12px}
-      .moon-app .mx-auto{margin-left:auto;margin-right:auto}.moon-app .-mx-4{margin-left:-16px;margin-right:-16px}.moon-app .mb-3{margin-bottom:12px}.moon-app .mb-4{margin-bottom:16px}.moon-app .mb-8{margin-bottom:32px}.moon-app .mt-1{margin-top:4px}.moon-app .mt-2{margin-top:8px}.moon-app .mt-3{margin-top:12px}.moon-app .mt-4{margin-top:16px}.moon-app .mt-5{margin-top:20px}.moon-app .mt-6{margin-top:24px}.moon-app .mt-8{margin-top:32px}.moon-app .mt-10{margin-top:40px}
-      .moon-app .block{display:block}.moon-app .flex{display:flex}.moon-app .grid{display:grid}.moon-app .hidden{display:none}.moon-app .grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}.moon-app .grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}
-      .moon-app .flex-col{flex-direction:column}.moon-app .flex-wrap{flex-wrap:wrap}.moon-app .items-center{align-items:center}.moon-app .items-start{align-items:flex-start}.moon-app .items-end{align-items:flex-end}.moon-app .justify-between{justify-content:space-between}.moon-app .justify-center{justify-content:center}.moon-app .justify-around{justify-content:space-around}
-      .moon-app .gap-1{gap:4px}.moon-app .gap-2{gap:8px}.moon-app .gap-3{gap:12px}.moon-app .gap-4{gap:16px}.moon-app .space-y-2>*+*{margin-top:8px}.moon-app .space-y-3>*+*{margin-top:12px}.moon-app .space-y-4>*+*{margin-top:16px}
-      .moon-app .min-h-screen{min-height:100vh}.moon-app .min-h-24{min-height:96px}.moon-app .min-h-28{min-height:112px}.moon-app .h-2{height:8px}.moon-app .h-4{height:16px}.moon-app .h-5{height:20px}.moon-app .h-8{height:32px}.moon-app .h-24{height:96px}.moon-app .h-44{height:176px}.moon-app .h-48{height:192px}.moon-app .h-80{height:320px}
-      .moon-app .w-full{width:100%}.moon-app .w-5{width:20px}.moon-app .w-8{width:32px}.moon-app .w-11{width:44px}.moon-app .w-24{width:96px}.moon-app .max-w-xs{max-width:320px}.moon-app .max-w-\\[420px\\]{max-width:420px}.moon-app .max-w-\\[460px\\]{max-width:460px}.moon-app .min-w-0{min-width:0}.moon-app .min-w-20{min-width:80px}.moon-app .min-w-\\[220px\\]{min-width:220px}.moon-app .flex-1{flex:1 1 0%}.moon-app .shrink-0{flex-shrink:0}
-      .moon-app .overflow-hidden{overflow:hidden}.moon-app .overflow-x-auto{overflow-x:auto}.moon-app .resize-none{resize:none}.moon-app .line-clamp-2{overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}.moon-app .truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.moon-app .whitespace-nowrap{white-space:nowrap}
-      .moon-app .rounded-full{border-radius:9999px}.moon-app .rounded-2xl{border-radius:16px}.moon-app .rounded-\\[20px\\]{border-radius:20px}.moon-app .rounded-\\[22px\\]{border-radius:22px}.moon-app .rounded-\\[24px\\]{border-radius:24px}.moon-app .rounded-\\[26px\\]{border-radius:26px}.moon-app .rounded-\\[28px\\]{border-radius:28px}.moon-app .rounded-\\[32px\\]{border-radius:32px}
-      .moon-app .bg-white{background:#fff}.dark .moon-app .bg-white{background:#1c1c1e}
-      .moon-app .bg-ink{background:linear-gradient(135deg,#1a1a1a 0%,#2a1a10 100%)}
-      .moon-app .bg-paper{background:#fff8f5}.dark .moon-app .bg-paper{background:#0a0a0a}
-      .moon-app .bg-paper\\/90{background:rgba(255,248,245,.9)}.dark .moon-app .bg-paper\\/90{background:rgba(10,10,10,.9)}
-      .moon-app .bg-paper\\/95{background:rgba(255,248,245,.95)}.dark .moon-app .bg-paper\\/95{background:rgba(10,10,10,.95)}
-      .moon-app .bg-white\\/95{background:rgba(255,255,255,.95)}.dark .moon-app .bg-white\\/95{background:rgba(28,28,30,.95)}
-      .moon-app .bg-white\\/45{background:rgba(255,255,255,.45)}.dark .moon-app .bg-white\\/45{background:rgba(255,255,255,.1)}
-      .moon-app .bg-white\\/15{background:rgba(255,255,255,.15)}.dark .moon-app .bg-white\\/15{background:rgba(255,255,255,.08)}
-      .moon-app .bg-white\\/10{background:rgba(255,255,255,.1)}
-      .moon-app .bg-black\\/5{background:rgba(0,0,0,.05)}.dark .moon-app .bg-black\\/5{background:rgba(255,255,255,.05)}
-      .moon-app .bg-black\\/\\[0\\.03\\]{background:rgba(0,0,0,.03)}.dark .moon-app .bg-black\\/\\[0\\.03\\]{background:rgba(255,255,255,.03)}
-      .moon-app .bg-black\\/\\[0\\.04\\]{background:rgba(0,0,0,.04)}.dark .moon-app .bg-black\\/\\[0\\.04\\]{background:rgba(255,255,255,.04)}
-      .moon-app .bg-primary{background:#ff5000}.moon-app .bg-price{background:#ff2d2d}.moon-app .bg-gold{background:#ffb800}.moon-app .bg-coral{background:#ff6b6b}.moon-app .bg-coral\\/10{background:rgba(255,80,0,.08)}.moon-app .bg-mint\\/10{background:rgba(52,199,89,.1)}
-      .moon-app .p-2{padding:8px}.moon-app .p-3{padding:12px}.moon-app .p-4{padding:16px}.moon-app .p-5{padding:20px}.moon-app .p-6{padding:24px}.moon-app .px-1{padding-left:4px;padding-right:4px}.moon-app .px-2{padding-left:8px;padding-right:8px}.moon-app .px-3{padding-left:12px;padding-right:12px}.moon-app .px-4{padding-left:16px;padding-right:16px}.moon-app .px-5{padding-left:20px;padding-right:20px}.moon-app .px-8{padding-left:32px;padding-right:32px}.moon-app .py-1{padding-top:4px;padding-bottom:4px}.moon-app .py-2{padding-top:8px;padding-bottom:8px}.moon-app .py-3{padding-top:12px;padding-bottom:12px}.moon-app .py-4{padding-top:16px;padding-bottom:16px}.moon-app .py-6{padding-top:24px;padding-bottom:24px}.moon-app .pb-2{padding-bottom:8px}.moon-app .pb-4{padding-bottom:16px}.moon-app .pb-24{padding-bottom:96px}.moon-app .pt-1{padding-top:4px}.moon-app .pt-4{padding-top:16px}.moon-app .pt-5{padding-top:20px}
-      .moon-app .text-left{text-align:left}.moon-app .text-center{text-align:center}.moon-app .text-right{text-align:right}.moon-app .text-xs{font-size:12px;line-height:16px}.moon-app .text-sm{font-size:14px;line-height:20px}.moon-app .text-base{font-size:16px;line-height:24px}.moon-app .text-lg{font-size:18px;line-height:28px}.moon-app .text-xl{font-size:20px;line-height:28px}.moon-app .text-2xl{font-size:24px;line-height:32px}.moon-app .text-3xl{font-size:30px;line-height:36px}.moon-app .text-4xl{font-size:36px;line-height:40px}.moon-app .text-5xl{font-size:48px;line-height:1}.moon-app .text-6xl{font-size:60px;line-height:1}.moon-app .text-7xl{font-size:72px;line-height:1}.moon-app .text-8xl{font-size:96px;line-height:1}.moon-app .text-\\[44px\\]{font-size:44px}.moon-app .text-\\[10px\\]{font-size:10px}.moon-app .text-\\[11px\\]{font-size:11px}
-      .moon-app .font-medium{font-weight:500}.moon-app .font-semibold{font-weight:600}.moon-app .leading-tight{line-height:1.25}.moon-app .leading-snug{line-height:1.375}.moon-app .leading-6{line-height:24px}.moon-app .leading-7{line-height:28px}.moon-app .leading-8{line-height:32px}.moon-app .leading-\\[1\\.08\\]{line-height:1.08}.moon-app .leading-none{line-height:1}.moon-app .tracking-normal{letter-spacing:0}
-      .moon-app .text-ink{color:#1a1a1a}.dark .moon-app .text-ink{color:#fff}
-      .moon-app .text-quiet{color:#8e8e93}
-      .moon-app .text-primary{color:#ff5000}.moon-app .text-price{color:#ff2d2d}.moon-app .text-gold{color:#ff8a00}.moon-app .text-coral{color:#ff2d2d}.moon-app .text-mint{color:#34c759}.moon-app .text-white{color:#fff}.moon-app .text-white\\/50{color:rgba(255,255,255,.5)}.moon-app .text-white\\/60{color:rgba(255,255,255,.6)}
-      .moon-app .shadow-soft{box-shadow:0 8px 24px rgba(255,80,0,.08),0 2px 6px rgba(17,17,17,.04)}.dark .moon-app .shadow-soft{box-shadow:0 8px 24px rgba(0,0,0,.3),0 2px 6px rgba(0,0,0,.2)}
-      .moon-app .backdrop-blur{backdrop-filter:blur(8px)}.moon-app .outline-none{outline:0}.moon-app .border-t{border-top:1px solid}.moon-app .border-black\\/5{border-color:rgba(0,0,0,.05)}.dark .moon-app .border-black\\/5{border-color:rgba(255,255,255,.08)}
-      .moon-app .masonry{column-count:2;column-gap:12px}.moon-app .masonry-item{break-inside:avoid;margin-bottom:12px}.moon-app .hide-scrollbar{scrollbar-width:none}.moon-app .hide-scrollbar::-webkit-scrollbar{display:none}
-      .moon-app .bg-gradient-to-br{background-image:linear-gradient(to bottom right,var(--tw-gradient-from,#ffe4d6),#fff,var(--tw-gradient-to,#ffedd5))}.moon-app .from-rose-100,.moon-app .from-amber-100,.moon-app .from-sky-100,.moon-app .from-violet-100,.moon-app .from-emerald-100,.moon-app .from-stone-100{--tw-gradient-from:#ffeed6}.moon-app .to-orange-100,.moon-app .to-lime-100,.moon-app .to-cyan-100,.moon-app .to-pink-100,.moon-app .to-teal-100,.moon-app .to-red-100{--tw-gradient-to:#fff5e6}
-      @media (min-width:768px){.moon-app{margin-top:24px;margin-bottom:24px;min-height:860px;border-radius:28px}.moon-app .masonry{column-count:3}}
-    `}</style>
-  );
-}
-
-function Screen({ children }: { children: React.ReactNode }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -10 }}
-      transition={{ duration: 0.22 }}
-    >
-      {children}
-    </motion.div>
-  );
-}
-
-function Header({
-  title,
-  onBack,
-  right,
-}: {
-  title: string;
-  onBack: () => void;
-  right?: React.ReactNode;
-}) {
-  return (
-    <header className="sticky top-0 z-20 -mx-4 flex items-center justify-between bg-paper/90 px-4 py-3 backdrop-blur">
-      <button
-        className="rounded-full bg-white p-3 shadow-soft"
-        onClick={onBack}
-        aria-label="返回"
-      >
-        <ArrowLeft size={18} />
-      </button>
-      <h1 className="text-lg font-semibold">{title}</h1>
-      <div className="w-11">{right}</div>
-    </header>
-  );
-}
-
-function OrderPanel({
-  orders,
-  open,
-  onClose,
-  onAccelerate,
-}: {
-  orders: DeliveryOrder[];
-  open: boolean;
-  onClose: () => void;
-  onAccelerate: (id?: string) => void;
-}) {
-  const [activeIndex, setActiveIndex] = useState(0);
-
-  // 新订单加入时跳到最新一单
-  useEffect(() => {
-    if (orders.length) setActiveIndex(orders.length - 1);
-  }, [orders.length]);
-
-  // 多订单自动轮播
-  useEffect(() => {
-    if (!open || orders.length <= 1) return;
-    const timer = window.setInterval(() => {
-      setActiveIndex((i) => (i + 1) % orders.length);
-    }, 2800);
-    return () => window.clearInterval(timer);
-  }, [open, orders.length]);
-
-  if (!open || !orders.length) return null;
-  const safeIndex = Math.min(activeIndex, orders.length - 1);
-  const selected = orders[safeIndex];
-  const selectedSteps = getDeliverySteps(selected.channel);
-  const progress = Math.round(
-    ((selected.stepIndex + 1) / selectedSteps.length) * 100,
-  );
-
-  return (
-    <div className="fixed inset-x-0 top-0 z-40 mx-auto max-w-[460px] px-3 pt-3">
-      <motion.section
-        initial={{ y: -28, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        exit={{ y: -28, opacity: 0 }}
-        className="w-full overflow-hidden rounded-[28px] bg-white shadow-soft"
-      >
-        <div className="bg-gradient-to-r from-[#FF6A1A] to-[#FF5000] p-4 text-white">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <div className="text-xs text-white/50">
-                {orders.length > 1 ? `配送中 · 共 ${orders.length} 单` : "订单生成成功"}
-              </div>
-              <div className="mt-1 text-xl font-semibold">
-                {selectedSteps[selected.stepIndex]}
-              </div>
-            </div>
-            <button
-              className="rounded-full bg-white/10 px-3 py-2 text-sm"
-              onClick={onClose}
-            >
-              收起
-            </button>
-          </div>
-          {orders.length > 1 && (
-            <div className="mt-4 flex items-center gap-2">
-              {orders.map((order, index) => (
-                <button
-                  key={order.id}
-                  onClick={() => setActiveIndex(index)}
-                  aria-label={`切换到订单 ${index + 1}`}
-                  className={`h-1.5 flex-1 overflow-hidden rounded-full transition-all ${index === safeIndex ? "bg-white/30" : "bg-white/10"}`}
-                >
-                  <span
-                    className="block h-full rounded-full bg-white transition-all"
-                    style={{
-                      width: index === safeIndex ? `${progress}%` : "0%",
-                    }}
-                  />
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-        <div className="p-4">
-          <div className="mb-3 flex items-center justify-between text-sm">
-            <span className="text-quiet">
-              订单 {safeIndex + 1} · {selected.channel === "travel" ? "虚拟出行进度" : "虚拟配送进度"}
-            </span>
-            <span className="font-semibold text-price">{progress}%</span>
-          </div>
-          <div className="h-2 overflow-hidden rounded-full bg-black/5">
-            <motion.div
-              className="h-2 rounded-full bg-primary"
-              animate={{ width: `${progress}%` }}
-            />
-          </div>
-          <div className="mt-4 rounded-[22px] bg-black/[0.03] p-3">
-            <BoughtItems items={selected.items} compact />
-          </div>
-          <div className="mt-4 flex items-center justify-between">
-            <div>
-              <div className="text-xs text-quiet">本单虚拟消费</div>
-              <div className="mt-1 text-2xl font-semibold">
-                {money(selected.amount)}
-              </div>
-            </div>
-            <button
-              className="rounded-full bg-primary px-4 py-3 text-sm font-semibold text-white"
-              onClick={() => onAccelerate(selected.id)}
-            >
-              加速配送
-            </button>
-          </div>
-        </div>
-      </motion.section>
-    </div>
-  );
-}
-
-function DeliveryTicker({
-  orders,
-  onOpen,
-}: {
-  orders: DeliveryOrder[];
-  onOpen: () => void;
-}) {
-  if (!orders.length) return null;
-  const latest = orders[orders.length - 1];
-  const latestSteps = getDeliverySteps(latest.channel);
-  const progress = Math.round(
-    ((latest.stepIndex + 1) / latestSteps.length) * 100,
-  );
-  const progressPercent = Math.min(92, 8 + latest.stepIndex * 7.2);
-  const firstItem = latest.items[0];
-  const extraCount = latest.items.length;
-  const isTravel = latest.channel === "travel";
-
-  return (
-    <div className="sticky top-0 z-40 -mx-4 mb-3 bg-paper/95 px-4 pb-2 pt-1 backdrop-blur">
-      <button
-        className="flex w-full items-center gap-3 rounded-2xl bg-white px-3 py-2 text-left shadow-soft"
-        onClick={onOpen}
-      >
-        <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-50 to-orange-100 text-2xl">
-          {firstItem?.emoji ?? "🛍"}
-          {extraCount > 1 && (
-            <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-price px-1 text-[10px] font-semibold text-white">
-              {extraCount}
-            </span>
-          )}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-2">
-            <span className="truncate text-sm font-semibold">
-              {firstItem?.title ?? "商品配送中"}
-              {extraCount > 1 && ` 等${extraCount}件`}
-            </span>
-            <span className="shrink-0 rounded-full bg-coral/10 px-2 py-0.5 text-xs font-semibold text-price">
-              {progress}%
-            </span>
-          </div>
-          <div className="relative mt-1.5 h-5">
-            <div className="absolute inset-x-0 top-1.5 h-1.5 overflow-hidden rounded-full bg-black/5">
-              <span
-                className="block h-full rounded-full bg-gradient-to-r from-primary to-gold"
-                style={{ width: `${progressPercent}%` }}
-              />
-            </div>
-            <motion.span
-              className="absolute top-0 text-base"
-              animate={{ left: `calc(${progressPercent}% - 10px)` }}
-              transition={{ type: "spring", stiffness: 70, damping: 16 }}
-            >
-              {isTravel ? "✈️" : "🏍️"}
-            </motion.span>
-          </div>
-          <div className="mt-0.5 flex items-center justify-between text-[10px] text-quiet">
-            <span>{isTravel ? "出发地" : "商家"}</span>
-            <span className="truncate">
-              {orders.length > 1
-                ? `${orders.length} 单配送中 · ${latestSteps[latest.stepIndex]}`
-                : latestSteps[latest.stepIndex]}
-            </span>
-            <span>{isTravel ? "🏝️" : "🏠"}</span>
-          </div>
-        </div>
-      </button>
-    </div>
-  );
-}
-
-function DeliveryCard({
-  order,
-  index,
-  onAccelerate,
-}: {
-  order: DeliveryOrder;
-  index: number;
-  onAccelerate: () => void;
-}) {
-  const steps = getDeliverySteps(order.channel);
-  const progress = Math.round(((order.stepIndex + 1) / steps.length) * 100);
-  const firstItem = order.items[0];
-  const extraCount = order.items.length;
-  const progressPercent = Math.min(92, 8 + order.stepIndex * 7.2);
-  const isTravel = order.channel === "travel";
-
-  return (
-    <section className="overflow-hidden rounded-[28px] bg-white shadow-soft">
-      <div className="relative h-56 overflow-hidden bg-gradient-to-br from-amber-50 via-white to-orange-50">
-        <div className="absolute inset-0 opacity-30 bg-[radial-gradient(circle_at_30%_20%,rgba(255,184,0,0.15),transparent_50%]" />
-        <div className="absolute left-4 top-4 flex items-center gap-3">
-          <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-white text-4xl shadow-lg">
-            {firstItem?.emoji ?? "🛍"}
-          </div>
-          <div>
-            <div className="text-xs text-quiet">订单 {index + 1}</div>
-            <div className="text-base font-semibold">
-              {firstItem?.title ?? "商品配送中"}
-              {extraCount > 1 && ` 等${extraCount}件`}
-            </div>
-          </div>
-        </div>
-        <div className="absolute right-4 top-4 rounded-full bg-white px-3 py-1 text-sm font-semibold text-primary">
-          {progress}%
-        </div>
-        <div className="absolute bottom-0 left-0 right-0 px-4 pb-4">
-          <div className="relative h-20 rounded-full bg-black/5">
-            <motion.div
-              className="relative h-full rounded-full bg-gradient-to-r from-primary to-gold"
-              animate={{ width: `${progressPercent}%` }}
-            />
-            <motion.div
-              className="absolute -top-5 text-3xl"
-              animate={{ left: `calc(${progressPercent}% - 24px)` }}
-              transition={{ type: "spring", stiffness: 70, damping: 16 }}
-            >
-              {isTravel ? "✈️" : "🏍️"}
-            </motion.div>
-          </div>
-          <div className="mt-3 flex items-center justify-between text-xs text-quiet">
-            <span>{isTravel ? "出发地" : "商家"}</span>
-            <span>{steps[order.stepIndex]}</span>
-            <span>{isTravel ? "目的地" : "🏠 收货地址"}</span>
-          </div>
-        </div>
-      </div>
-      <div className="p-5">
-        <h2 className="text-2xl font-semibold">
-          {steps[order.stepIndex]}
-        </h2>
-        <div className="mt-2 text-sm text-quiet">
-          {isTravel
-            ? "行程正在安排中，预计马上出发～"
-            : "骑手正在飞速赶来，预计今晚马上送达～"}
-        </div>
-        <div className="mt-5 flex items-center justify-between">
-          <div>
-            <div className="text-xs text-quiet">{isTravel ? "本单预订费用" : "本单虚拟消费"}</div>
-            <div className="text-xl font-semibold text-price">
-              {money(order.amount)}
-            </div>
-          </div>
-          <button
-            className="rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white shadow-soft"
-            onClick={onAccelerate}
-          >
-            {isTravel ? "加速出行" : "加速配送"}
-          </button>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function CartButton({
-  count,
-  onClick,
-}: {
-  count: number;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      className="relative rounded-full bg-white p-3 shadow-soft"
-      onClick={onClick}
-      aria-label="购物车"
-    >
-      <ShoppingBag size={18} />
-      {count > 0 && (
-        <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-price px-1 text-[11px] font-semibold text-white">
-          {count}
-        </span>
-      )}
-    </button>
-  );
-}
-
-function ProductCard({
-  product,
-  onClick,
-  showFavorite = true,
-  onToggleFavorite,
-  isFavorite,
-}: {
-  product: Product;
-  onClick: () => void;
-  showFavorite?: boolean;
-  onToggleFavorite?: () => void;
-  isFavorite?: boolean;
-}) {
-  return (
-    <div className="masonry-item relative">
-      <button
-        className="block w-full rounded-[24px] bg-white p-2 text-left shadow-soft transition active:scale-[0.98]"
-        onClick={onClick}
-      >
-        <ProductVisual product={product} />
-        <div className="p-2">
-          <h3 className="line-clamp-2 text-base font-semibold leading-snug">
-            {product.title}
-          </h3>
-          <div className="mt-2 flex items-center justify-between">
-            <span className="text-lg font-semibold text-price">
-              {money(product.price)}
-            </span>
-            <span className="text-xs text-quiet">销量 {product.sales}</span>
-          </div>
-          <div className="mt-3 flex flex-wrap gap-1">
-            {product.tags.map((tag) => (
-              <span
-                key={tag}
-                className="rounded-full bg-coral/10 px-2 py-1 text-[11px] text-coral"
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-        </div>
-      </button>
-      {showFavorite && onToggleFavorite && (
-        <button
-          className="absolute top-4 right-4 z-10 h-8 w-8 rounded-full bg-white/90 backdrop-blur flex items-center justify-center shadow-md active:scale-90 transition-transform"
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleFavorite();
-          }}
-        >
-          <Heart
-            size={15}
-            className={isFavorite ? "fill-coral text-coral" : "text-quiet"}
-          />
-        </button>
-      )}
-    </div>
-  );
-}
-
-function ProductVisual({
-  product,
-  large = false,
-  compact = false,
-}: {
-  product: Product;
-  large?: boolean;
-  compact?: boolean;
-}) {
-  const size = compact
-    ? "h-24 w-24 shrink-0 rounded-[20px]"
-    : large
-      ? "h-80 rounded-[32px]"
-      : "h-44 rounded-[20px]";
-  return (
-    <div
-      className={`${size} relative flex items-center justify-center overflow-hidden bg-black/[0.03]`}
-    >
-      <span
-        className={
-          large
-            ? "relative text-9xl"
-            : compact
-              ? "relative text-5xl"
-              : "relative text-7xl"
-        }
-      >
-        {product.emoji}
-      </span>
-    </div>
-  );
-}
-
-function InfoRow({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: string;
-  tone?: "coral" | "mint";
-}) {
-  const color =
-    tone === "coral"
-      ? "text-coral"
-      : tone === "mint"
-        ? "text-mint"
-        : "text-ink";
-  return (
-    <div className="flex items-center justify-between gap-4 py-2">
-      <span className="text-sm text-quiet">{label}</span>
-      <span className={`text-right font-semibold ${color}`}>{value}</span>
-    </div>
-  );
-}
-
-function BoughtItems({
-  items,
-  compact = false,
-  inverse = false,
-}: {
-  items: CartItem[];
-  compact?: boolean;
-  inverse?: boolean;
-}) {
-  if (!items.length) {
-    return (
-      <p className={`text-sm ${inverse ? "text-white/60" : "text-quiet"}`}>
-        这次是直接奖励自己，没有留下具体清单。
-      </p>
-    );
-  }
-
-  return (
-    <div className={compact ? "flex flex-wrap gap-2" : "space-y-2"}>
-      {items.map((item) => (
-        <div
-          key={`${item.id}-${item.title}`}
-          className={
-            compact
-              ? `rounded-full px-3 py-2 text-xs font-semibold ${inverse ? "bg-white/15 text-white" : "bg-white text-ink"}`
-              : "flex items-center justify-between rounded-2xl bg-black/[0.03] px-3 py-2"
-          }
-        >
-          <span className="min-w-0">
-            <span className="mr-2">{item.emoji}</span>
-            <span>{item.title}</span>
-          </span>
-          {!compact && (
-            <span className="shrink-0 text-sm text-quiet">
-              x {item.quantity}
-            </span>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function OrderCard({
-  record,
-  onAfterSale,
-  onAfterSaleComplete,
-}: {
-  record: PurchaseRecord;
-  onAfterSale: (id: string) => void;
-  onAfterSaleComplete: (id: string) => void;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const [showAfterSale, setShowAfterSale] = useState(false);
-  const [afterSaleReason, setAfterSaleReason] = useState("");
-  const [customReason, setCustomReason] = useState("");
-  const [afterSaleCountdown, setAfterSaleCountdown] = useState("");
-
-  const AFTER_SALE_DURATION = 15 * 60 * 1000;
-  const isDev = process.env.NODE_ENV === "development";
-
-  useEffect(() => {
-    if (record.afterSaleStatus !== "applied" || !record.afterSaleAppliedAt) return;
-
-    const updateCountdown = () => {
-      const appliedAt = new Date(record.afterSaleAppliedAt!).getTime();
-      const now = Date.now();
-      const elapsed = now - appliedAt;
-      const remaining = Math.max(0, AFTER_SALE_DURATION - elapsed);
-
-      if (remaining <= 0) {
-        onAfterSaleComplete(record.id);
-        setAfterSaleCountdown("");
-        return;
-      }
-
-      const minutes = Math.floor(remaining / 60000);
-      const seconds = Math.floor((remaining % 60000) / 1000);
-      setAfterSaleCountdown(`${minutes}分${seconds.toString().padStart(2, "0")}秒`);
-    };
-
-    updateCountdown();
-    const timer = window.setInterval(updateCountdown, 1000);
-    return () => window.clearInterval(timer);
-  }, [record.afterSaleStatus, record.afterSaleAppliedAt, record.id, onAfterSaleComplete]);
-
-  useEffect(() => {
-    if (showAfterSale) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [showAfterSale]);
-
-  const reasons = [
-    { value: "no_need", label: "不需要了" },
-    { value: "change_mind", label: "买错了/后悔了" },
-    { value: "quality", label: "虚拟品质不满意" },
-    { value: "duplicate", label: "重复购买" },
-    { value: "other", label: "其他原因" },
-  ];
-
-  const handleSubmit = () => {
-    if (!afterSaleReason) return;
-    onAfterSale(record.id);
-    setShowAfterSale(false);
-    setAfterSaleReason("");
-    setCustomReason("");
-  };
-
-  const firstItem = record.items[0];
-  const extraCount = record.items.length - 1;
-
-  return (
-    <div className="rounded-[20px] bg-white/70 backdrop-blur-md border border-white/50 overflow-hidden shadow-[0_6px_20px_rgba(0,0,0,0.06)]">
-      <div className="px-4 py-3 flex items-center justify-between border-b border-black/5">
-        <span className="text-xs text-quiet">
-          {formatPurchaseDate(record.createdAt)}
-        </span>
-        <span className="text-xs font-medium text-primary">
-          {record.afterSaleStatus === "applied"
-            ? `售后处理中 ${afterSaleCountdown ? `· ${afterSaleCountdown}` : ""}`
-            : record.afterSaleStatus === "completed"
-            ? "售后已完成"
-            : "已完结"}
-        </span>
-      </div>
-
-      <div className="p-4">
-        <div className="flex items-center gap-3">
-          <div className="h-16 w-16 shrink-0 rounded-[14px] bg-black/[0.03] flex items-center justify-center text-3xl">
-            {firstItem?.emoji}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="font-medium truncate">
-              {firstItem?.title}
-              {extraCount > 0 && ` 等${record.items.length}件商品`}
-            </div>
-            <div className="mt-1 text-xs text-quiet">
-              共 {record.items.length} 件
-            </div>
-            <div className="mt-1 text-sm font-semibold text-price">
-              {money(record.amount)}
-            </div>
-          </div>
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="shrink-0 text-xs text-quiet"
-          >
-            {expanded ? "收起" : "展开"}
-          </button>
-        </div>
-
-        {expanded && (
-          <div className="mt-4 space-y-4">
-            <div className="rounded-[14px] bg-black/[0.03] p-3 space-y-2">
-              {record.items.map((item) => (
-                <div key={item.id} className="flex items-center justify-between text-sm">
-                  <span>
-                    <span className="mr-2">{item.emoji}</span>
-                    {item.title}
-                  </span>
-                  <span className="text-quiet">x{item.quantity}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="flex gap-2">
-              {!record.afterSaleStatus || record.afterSaleStatus === "none" ? (
-                <button
-                  onClick={() => setShowAfterSale(true)}
-                  className="flex-1 rounded-full border border-black/10 px-4 py-2.5 text-sm font-medium"
-                >
-                  申请售后
-                </button>
-              ) : record.afterSaleStatus === "applied" ? (
-                <div className="flex-1 rounded-full bg-primary/10 px-4 py-2.5 text-sm font-medium text-primary text-center">
-                  处理中 · {afterSaleCountdown || "15分00秒"}
-                </div>
-              ) : null}
-              <button className="flex-1 rounded-full bg-black/[0.06] px-4 py-2.5 text-sm font-medium">
-                再次购买
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {showAfterSale && createPortal(
-        <div
-          className="fixed inset-0 z-[100] flex items-end justify-center bg-black/40 backdrop-blur-sm"
-          onClick={() => setShowAfterSale(false)}
-          style={{ overscrollBehavior: "contain", touchAction: "none" }}
-        >
-          <div
-            className="w-full max-w-[460px] rounded-t-[20px] bg-[#f2f2f7] pb-6 pt-2"
-            onClick={(e) => e.stopPropagation()}
-            style={{ overscrollBehavior: "contain" }}
-          >
-            <div className="mx-auto mb-3 h-1 w-9 rounded-full bg-black/15" />
-            <div className="px-4 py-2 text-center text-[13px] text-[#8e8e93]">
-              请选择售后原因
-            </div>
-            <div className="mx-3 mt-2 rounded-[12px] bg-white overflow-hidden">
-              {reasons.map((reason, idx) => {
-                const selected = afterSaleReason === reason.value;
-                return (
-                  <div key={reason.value}>
-                    {idx > 0 && <div className="ml-4 h-px bg-black/5" />}
-                    <button
-                      onClick={() => {
-                        setAfterSaleReason(reason.value);
-                        if (reason.value !== "other") setCustomReason("");
-                      }}
-                      className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-[15px] active:bg-black/5 transition-colors ${
-                        selected ? "text-primary" : "text-[#1c1c1e]"
-                      }`}
-                    >
-                      <span>{reason.label}</span>
-                      {selected && (
-                        <svg className="h-5 w-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-
-            {afterSaleReason === "other" && (
-              <div className="mx-3 mt-2 rounded-[12px] bg-white px-4 py-3">
-                <textarea
-                  autoFocus
-                  className="w-full min-h-[60px] text-[15px] outline-none resize-none placeholder:text-[#c7c7cc]"
-                  placeholder="请输入具体原因..."
-                  value={customReason}
-                  onChange={(e) => setCustomReason(e.target.value)}
-                />
-              </div>
-            )}
-
-            <div className="mx-3 mt-2 rounded-[12px] bg-white overflow-hidden">
-              <button
-                onClick={handleSubmit}
-                disabled={!afterSaleReason || (afterSaleReason === "other" && !customReason)}
-                className={`w-full px-4 py-3 text-[15px] font-semibold transition-colors active:bg-black/5 ${
-                  afterSaleReason && (afterSaleReason !== "other" || customReason)
-                    ? "text-primary"
-                    : "text-[#c7c7cc]"
-                }`}
-              >
-                提交
-              </button>
-            </div>
-            <div className="mx-3 mt-2 rounded-[12px] bg-white overflow-hidden">
-              <button
-                onClick={() => setShowAfterSale(false)}
-                className="w-full px-4 py-3 text-[15px] font-medium text-[#1c1c1e] active:bg-black/5"
-              >
-                取消
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
-    </div>
-  );
-}
-
-function EmptyCart({ onShop }: { onShop: () => void }) {
-  return (
-    <Centered>
-      <div className="text-6xl">🛒</div>
-      <h2 className="mt-6 text-2xl font-semibold">购物车还是空的</h2>
-      <p className="mt-3 text-quiet">先把今晚想买的快乐放进来。</p>
-      <button
-        className="mt-8 rounded-full bg-primary px-8 py-4 font-semibold text-white shadow-soft"
-        onClick={onShop}
-      >
-        继续逛逛
-      </button>
-    </Centered>
-  );
-}
-
-function formatPurchaseDate(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "刚刚";
-  return `${date.getMonth() + 1}月${date.getDate()}日 ${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
-}
-
-function Centered({ children }: { children: React.ReactNode }) {
-  return (
-    <section className="flex min-h-[calc(100vh-8rem)] flex-col items-center justify-center text-center">
-      {children}
-    </section>
-  );
-}
-
-function IconButton({
-  label,
-  onClick,
-  children,
-}: {
-  label: string;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      className="flex h-8 w-8 items-center justify-center rounded-full bg-black/5"
-      onClick={onClick}
-      aria-label={label}
-      title={label}
-    >
-      {children}
-    </button>
-  );
-}
-
-function StatCard({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="rounded-[24px] bg-white p-5 shadow-soft">
-      <div className="text-sm text-quiet">{label}</div>
-      <div className="mt-3 text-3xl font-semibold">{value}</div>
-    </div>
-  );
-}
-
-function TabBar({
-  view,
-  setView,
-  cartCount,
-}: {
-  view: View;
-  setView: (view: View) => void;
-  cartCount: number;
-}) {
-  const items = [
-    { view: "home" as View, label: "首页", icon: Home },
-    { view: "cart" as View, label: "购物车", icon: ShoppingBag },
-    { view: "mine" as View, label: "我的", icon: UserRound },
-  ];
-  return (
-    <nav className="fixed inset-x-0 bottom-3 z-30 mx-auto flex max-w-[420px] justify-center px-4">
-      <div className="flex w-full justify-around rounded-full bg-white/95 p-2 shadow-soft backdrop-blur">
-        {items.map((item) => {
-          const Icon = item.icon;
-          const active = view === item.view;
-          return (
-            <button
-              key={item.view}
-              onClick={() => setView(item.view)}
-              className={`relative flex min-w-20 flex-col items-center rounded-full px-4 py-2 text-xs ${active ? "bg-primary text-white" : "text-quiet"}`}
-            >
-              <span className="relative">
-                <Icon size={18} />
-                {item.view === "cart" && cartCount > 0 && (
-                  <span className="absolute -right-3 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-coral px-1 text-[10px] font-semibold leading-none text-white">
-                    {cartCount}
-                  </span>
-                )}
-              </span>
-              <span className="mt-1">{item.label}</span>
-            </button>
-          );
-        })}
-      </div>
-    </nav>
   );
 }
