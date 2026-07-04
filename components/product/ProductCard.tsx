@@ -26,7 +26,7 @@ function ProductCardComponent({
   onQuickAdd,
 }: ProductCardProps) {
   return (
-    <div className="masonry-item relative">
+    <div className="relative" style={{ contentVisibility: "auto", containIntrinsicSize: "auto 300px" }}>
       <button
         className="block w-full rounded-[24px] bg-white p-2 text-left shadow-soft transition active:scale-[0.98]"
         onClick={() => onClick(product)}

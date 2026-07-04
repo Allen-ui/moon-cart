@@ -295,7 +295,9 @@ export default function MoonCartApp() {
   const [flightTripType, setFlightTripType] = useState<"oneway" | "roundtrip">("oneway");
   const [flightFrom, setFlightFrom] = useState("北京");
   const [flightTo, setFlightTo] = useState("上海");
-  const [flightDate, setFlightDate] = useState("");
+  const [flightDate, setFlightDate] = useState(
+    new Date(Date.now() + 86400000).toISOString().slice(0, 10)
+  );
   const [flightReturnDate, setFlightReturnDate] = useState("");
   const [flightCabin, setFlightCabin] = useState<"economy" | "business" | "first">("economy");
   const [flightAdults, setFlightAdults] = useState(1);
@@ -1898,12 +1900,13 @@ export default function MoonCartApp() {
                   <div className="mt-2 flex items-center justify-center px-2">
                     <button
                       type="button"
-                      className="h-1.5 w-full max-w-[200px] rounded-full overflow-hidden bg-[#efefef]"
+                      className="relative h-1.5 w-1/3 min-w-[120px] rounded-full overflow-hidden"
                       onClick={() => setCategoryExpanded((v) => !v)}
                       aria-label="展开或收起分类"
                     >
+                      <span className="absolute inset-0 bg-[#efefef]" />
                       <span
-                        className="block h-full rounded-full bg-primary transition-all duration-300"
+                        className="absolute inset-y-0 left-0 rounded-full bg-primary transition-all duration-300"
                         style={{
                           width: categoryExpanded ? "100%" : "20%",
                         }}
@@ -2217,7 +2220,7 @@ export default function MoonCartApp() {
                   搜索结果 ({fuzzySearch(products.filter((p) => channelCategories[categoryChannel].includes(p.category)), searchQuery).length})
                 </div>
                 {fuzzySearch(products.filter((p) => channelCategories[categoryChannel].includes(p.category)), searchQuery).length > 0 ? (
-                  <div className="masonry pb-4">
+                  <div className="grid grid-cols-2 gap-3 pb-4">
                     {fuzzySearch(products.filter((p) => channelCategories[categoryChannel].includes(p.category)), searchQuery).map((product) => (
                       <ProductCard
                         key={product.id}
@@ -2340,7 +2343,7 @@ export default function MoonCartApp() {
                 );
               })}
             </div>
-            <div className="masonry pb-4">
+            <div className="grid grid-cols-2 gap-3 pb-4">
               {visibleProducts.map((product) => (
                 <ProductCard
                   key={product.id}
@@ -3586,7 +3589,7 @@ export default function MoonCartApp() {
               </span>
             } />
             {(stats.favorites ?? []).length > 0 ? (
-              <div className="masonry mt-4 pb-4">
+              <div className="grid grid-cols-2 gap-3 mt-4 pb-4">
                 {(stats.favorites ?? []).map((fav) => (
                   <ProductCard
                     key={fav.productId}
@@ -3815,19 +3818,19 @@ export default function MoonCartApp() {
             <Header title="机票预订" onBack={() => setView("home")} />
 
             <div className="mt-4 mx-4 rounded-[28px] bg-white p-5 shadow-soft">
-              <div className="flex rounded-[20px] overflow-hidden bg-black/[0.03]">
+              <div className="flex rounded-[20px] overflow-hidden bg-black/[0.03] p-1">
                 <button
                   onClick={() => setFlightTripType("oneway")}
-                  className={`flex-1 py-3 text-sm font-medium transition-colors ${
-                    flightTripType === "oneway" ? "bg-white text-primary" : "text-quiet"
+                  className={`flex-1 py-2.5 text-sm font-medium transition-all rounded-[16px] ${
+                    flightTripType === "oneway" ? "bg-white text-primary shadow-sm" : "text-quiet"
                   }`}
                 >
                   单程
                 </button>
                 <button
                   onClick={() => setFlightTripType("roundtrip")}
-                  className={`flex-1 py-3 text-sm font-medium transition-colors ${
-                    flightTripType === "roundtrip" ? "bg-white text-primary" : "text-quiet"
+                  className={`flex-1 py-2.5 text-sm font-medium transition-all rounded-[16px] ${
+                    flightTripType === "roundtrip" ? "bg-white text-primary shadow-sm" : "text-quiet"
                   }`}
                 >
                   往返
@@ -3886,7 +3889,6 @@ export default function MoonCartApp() {
                     min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
                     onChange={(e) => setFlightDate(e.target.value)}
                     className="w-full rounded-[16px] bg-black/[0.03] px-4 py-3 text-[15px] font-semibold text-[#1c1c1e] outline-none cursor-pointer"
-                    style={{ WebkitAppearance: "none", appearance: "none" }}
                   />
                 </div>
                 {flightTripType === "roundtrip" && (
@@ -3898,13 +3900,12 @@ export default function MoonCartApp() {
                       min={flightDate || new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
                       onChange={(e) => setFlightReturnDate(e.target.value)}
                       className="w-full rounded-[16px] bg-black/[0.03] px-4 py-3 text-[15px] font-semibold text-[#1c1c1e] outline-none cursor-pointer"
-                      style={{ WebkitAppearance: "none", appearance: "none" }}
                     />
                   </div>
                 )}
               </div>
 
-              <div className="mt-4 flex items-center justify-between">
+              <div className="mt-4 space-y-3">
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-2 rounded-full bg-black/[0.03] px-4 py-2">
                     <button
@@ -3913,7 +3914,7 @@ export default function MoonCartApp() {
                     >
                       <Minus size={12} />
                     </button>
-                    <span className="text-sm font-semibold">{flightAdults}成人</span>
+                    <span className="text-sm font-semibold whitespace-nowrap">{flightAdults}成人</span>
                     <button
                       onClick={() => setFlightAdults(Math.min(9, flightAdults + 1))}
                       className="flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-sm"
@@ -3929,7 +3930,7 @@ export default function MoonCartApp() {
                       >
                         <Minus size={12} />
                       </button>
-                      <span className="text-sm font-semibold">{flightChildren}儿童</span>
+                      <span className="text-sm font-semibold whitespace-nowrap">{flightChildren}儿童</span>
                       <button
                         onClick={() => setFlightChildren(Math.min(5, flightChildren + 1))}
                         className="flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-sm"
@@ -3940,7 +3941,7 @@ export default function MoonCartApp() {
                   )}
                   <button
                     onClick={() => setFlightChildren(Math.min(5, flightChildren + 1))}
-                    className="text-xs text-primary"
+                    className="text-xs text-primary whitespace-nowrap"
                   >
                     +儿童
                   </button>
@@ -3954,7 +3955,7 @@ export default function MoonCartApp() {
                     <button
                       key={c.key}
                       onClick={() => setFlightCabin(c.key)}
-                      className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap ${
                         flightCabin === c.key ? "bg-primary/10 text-primary" : "bg-black/[0.03] text-quiet"
                       }`}
                     >
