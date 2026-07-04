@@ -785,6 +785,43 @@ const categorySeed: Record<string, Array<[string, number, string]>> = {
   盲盒: generateBlindBoxItems()
 };
 
+const MIN_PRODUCTS_PER_CATEGORY = 50;
+const productFillModifiers = [
+  "精选款",
+  "人气款",
+  "升级款",
+  "家庭装",
+  "囤货装",
+  "礼盒装",
+  "限定款",
+  "轻享版",
+  "豪华版",
+  "高配版",
+];
+
+Object.entries(categorySeed).forEach(([category, items]) => {
+  if (category === "盲盒" || items.length >= MIN_PRODUCTS_PER_CATEGORY) return;
+
+  const originalItems = [...items];
+  const usedTitles = new Set(items.map(([title]) => title));
+  let fillIndex = 0;
+
+  while (items.length < MIN_PRODUCTS_PER_CATEGORY) {
+    const [title, price, emoji] = originalItems[fillIndex % originalItems.length];
+    const modifier = productFillModifiers[Math.floor(fillIndex / originalItems.length) % productFillModifiers.length];
+    const generatedTitle = `${title}${modifier}`;
+
+    if (!usedTitles.has(generatedTitle)) {
+      const priceOffset = ((fillIndex % 5) - 2) * 0.04;
+      const generatedPrice = Math.max(1, Math.round(price * (1 + priceOffset) + (fillIndex % 7) * 3));
+      items.push([generatedTitle, generatedPrice, emoji]);
+      usedTitles.add(generatedTitle);
+    }
+
+    fillIndex++;
+  }
+});
+
 const palettes = [
   "from-rose-100 via-white to-orange-100",
   "from-amber-100 via-white to-lime-100",

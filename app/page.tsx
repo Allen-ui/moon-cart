@@ -609,6 +609,8 @@ type FlightResult = {
   cabin: "economy" | "business" | "first";
   seatsLeft: number;
   onTimeRate: number;
+  stops: number;
+  transferCity?: string;
 };
 
 const DOMESTIC_AIRLINES: { code: string; name: string; logo: string; color: string }[] = [
@@ -654,6 +656,7 @@ export default function MoonCartApp() {
   const [listTitle, setListTitle] = useState<string>("");
   const [categoryExpanded, setCategoryExpanded] = useState(false);
   const categorySwipeRef = useRef({ x: 0, y: 0, moved: false });
+  const categoryScrollRef = useRef<HTMLDivElement>(null);
   const listTabScrollRef = useRef<HTMLDivElement>(null);
 
   // 滚动 list 页 tab 栏到选中的子分类（居中显示）
@@ -691,6 +694,14 @@ export default function MoonCartApp() {
     if (view !== "list") return;
     scrollListTabToCenter();
   }, [view, listTitle, listChannel, scrollListTabToCenter]);
+
+  useEffect(() => {
+    if (categoryExpanded) return;
+    requestAnimationFrame(() => {
+      categoryScrollRef.current?.scrollTo({ left: 0, behavior: "auto" });
+    });
+  }, [categoryExpanded]);
+
   const [selectedCategory, setSelectedCategory] = useState<
     string | undefined
   >();
@@ -756,7 +767,9 @@ export default function MoonCartApp() {
     setFlightSearching(true);
     setFlightResults(null);
     setTimeout(() => {
-      const isIntl = flightCityTab === "international";
+      const isIntl =
+        flightCityTab === "international" ||
+        FLIGHT_CITY_DATA.international.some((city) => city.name === flightFrom || city.name === flightTo);
       const airlines = isIntl ? INTERNATIONAL_AIRLINES : DOMESTIC_AIRLINES;
       const seedStr = `${flightFrom}${flightTo}${flightDate}${flightCabin}`;
       let seed = 0;
@@ -765,24 +778,36 @@ export default function MoonCartApp() {
       const basePrice = flightCabin === "economy" ? 600 : flightCabin === "business" ? 2400 : 5800;
       const distanceFactor = isIntl ? 6 : 1.2;
       const cabinMultiplier = flightCabin === "economy" ? 1 : flightCabin === "business" ? 2.6 : 5.5;
-      const results: FlightResult[] = airlines.map((airline, idx) => {
-        const hour = 6 + Math.floor(rand(0, 14));
+      const directFlightCount = rand(0, 100) < (isIntl ? 48 : 76) ? rand(isIntl ? 1 : 2, isIntl ? 5 : 9) : 0;
+      const transferFlightCount = rand(directFlightCount === 0 ? 3 : 1, isIntl ? 7 : 5);
+      const flightCount = Math.min(airlines.length, directFlightCount + transferFlightCount);
+      const shuffledAirlines = [...airlines].sort(() => rand(0, 2) - 1);
+      const transferCities = (isIntl
+        ? ["香港", "首尔", "东京", "新加坡", "曼谷", "迪拜", "多哈", "伊斯坦布尔"]
+        : ["郑州", "武汉", "西安", "长沙", "重庆", "南京", "昆明", "厦门"]
+      ).filter((city) => city !== flightFrom && city !== flightTo);
+
+      const results: FlightResult[] = Array.from({ length: flightCount }, (_, idx) => {
+        const airline = shuffledAirlines[idx];
+        const stops = idx < directFlightCount ? 0 : 1;
+        const transferCity = stops > 0 ? transferCities[rand(0, transferCities.length - 1)] : undefined;
+        const hour = 6 + Math.floor(rand(0, 15));
         const minute = Math.floor(rand(0, 11)) * 5;
         const dep = `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
-        const durMin = 80 + Math.floor(rand(0, 180)) + (isIntl ? 360 : 0);
+        const durMin = 75 + Math.floor(rand(0, isIntl ? 420 : 190)) + (isIntl ? 300 : 0) + (stops ? rand(85, 210) : 0);
         const arrMin = hour * 60 + minute + durMin;
         const arrH = Math.floor(arrMin / 60) % 24;
         const arrM = arrMin % 60;
         const arr = `${String(arrH).padStart(2, "0")}:${String(arrM).padStart(2, "0")}`;
-        const priceJitter = (idx + 1) * 30 + rand(0, 80);
-        const price = Math.round((basePrice + priceJitter) * distanceFactor * cabinMultiplier);
+        const priceJitter = (idx + 1) * 30 + rand(0, 180) - (stops ? rand(40, 120) : 0);
+        const price = Math.max(120, Math.round((basePrice + priceJitter) * distanceFactor * cabinMultiplier));
         return {
-          id: `${airline.code}${1000 + idx}`,
+          id: `${airline.code}${1000 + idx}-${stops ? "T" : "D"}`,
           airline: airline.name,
           airlineCode: airline.code,
           logo: airline.logo,
           color: airline.color,
-          flightNo: `${airline.code}${1000 + idx}`,
+          flightNo: stops ? `${airline.code}${1000 + idx}/${airline.code}${2000 + idx}` : `${airline.code}${1000 + idx}`,
           aircraft: ["A320", "A330", "B737", "B777", "A350"][rand(0, 4)],
           departTime: dep,
           arriveTime: arr,
@@ -793,6 +818,8 @@ export default function MoonCartApp() {
           cabin: flightCabin,
           seatsLeft: rand(0, 12),
           onTimeRate: 80 + rand(0, 19),
+          stops,
+          transferCity,
         };
       });
       setFlightResults(results);
@@ -1730,13 +1757,16 @@ export default function MoonCartApp() {
               {homeTab === "index" ? (
                 <div className="relative mt-4">
                   <div
-                    className="overflow-hidden cursor-grab select-none"
+                    ref={categoryScrollRef}
+                    className={`hide-scrollbar cursor-grab select-none ${
+                      categoryExpanded ? "overflow-hidden" : "overflow-x-auto overflow-y-hidden"
+                    }`}
                     style={{
                       height: categoryExpanded
                         ? `${HOME_CATEGORY_EXPANDED_HEIGHT}px`
                         : `${HOME_CATEGORY_COLLAPSED_HEIGHT}px`,
                       transition: "height 0.3s ease",
-                      touchAction: "pan-y",
+                      touchAction: categoryExpanded ? "pan-y" : "pan-x pan-y",
                     }}
                     onPointerDown={(e) => {
                       categorySwipeRef.current = {
@@ -1749,28 +1779,60 @@ export default function MoonCartApp() {
                     onPointerMove={(e) => {
                       const deltaX = e.clientX - categorySwipeRef.current.x;
                       const deltaY = e.clientY - categorySwipeRef.current.y;
-                      if (Math.abs(deltaX) > 16 && Math.abs(deltaX) > Math.abs(deltaY)) {
+                      if (Math.abs(deltaX) > 6 && Math.abs(deltaX) > Math.abs(deltaY)) {
                         categorySwipeRef.current.moved = true;
+                        if (!categoryExpanded && deltaX < -6) {
+                          setCategoryExpanded(true);
+                          requestAnimationFrame(() => {
+                            categoryScrollRef.current?.scrollTo({ left: 0, behavior: "auto" });
+                          });
+                        }
+                        if (categoryExpanded && deltaX > 6) {
+                          setCategoryExpanded(false);
+                          requestAnimationFrame(() => {
+                            categoryScrollRef.current?.scrollTo({ left: 0, behavior: "auto" });
+                          });
+                        }
                       }
                     }}
                     onPointerUp={(e) => {
                       const deltaX = e.clientX - categorySwipeRef.current.x;
                       const deltaY = e.clientY - categorySwipeRef.current.y;
-                      if (Math.abs(deltaX) > Math.abs(deltaY) && deltaX < -40) {
+                      if (Math.abs(deltaX) > Math.abs(deltaY) && deltaX < -18) {
                         categorySwipeRef.current.moved = true;
                         setCategoryExpanded(true);
+                        categoryScrollRef.current?.scrollTo({ left: 0, behavior: "auto" });
                       }
-                      if (Math.abs(deltaX) > Math.abs(deltaY) && deltaX > 40) {
+                      if (Math.abs(deltaX) > Math.abs(deltaY) && deltaX > 18) {
                         categorySwipeRef.current.moved = true;
                         setCategoryExpanded(false);
+                        categoryScrollRef.current?.scrollTo({ left: 0, behavior: "auto" });
                       }
                       e.currentTarget.releasePointerCapture?.(e.pointerId);
                     }}
                     onPointerCancel={() => {
                       categorySwipeRef.current.moved = false;
                     }}
+                    onScroll={(e) => {
+                      if (!categoryExpanded && e.currentTarget.scrollLeft > 4) {
+                        categorySwipeRef.current.moved = true;
+                        setCategoryExpanded(true);
+                        requestAnimationFrame(() => {
+                          categoryScrollRef.current?.scrollTo({ left: 0, behavior: "auto" });
+                        });
+                      }
+                    }}
                   >
-                    <div className="grid grid-cols-5 gap-x-2 gap-y-3">
+                    <div
+                      className="grid gap-x-2 gap-y-3"
+                      style={{
+                        gridTemplateColumns: categoryExpanded
+                          ? "repeat(5, minmax(0, 1fr))"
+                          : `repeat(${HOME_CATEGORIES.length}, 20%)`,
+                        width: "100%",
+                        transition: "grid-template-columns 0.3s ease",
+                      }}
+                    >
                       {HOME_CATEGORIES.map((item) => (
                         <button
                           key={item.label}
@@ -3279,7 +3341,9 @@ export default function MoonCartApp() {
                             </span>
                             <div>
                               <div className="text-[13px] font-semibold text-[#1c1c1e]">{flight.airline}</div>
-                              <div className="text-[11px] text-quiet">{flight.flightNo} · {flight.aircraft}</div>
+                              <div className="text-[11px] text-quiet">
+                                {flight.flightNo} · {flight.aircraft} · {flight.stops === 0 ? "直飞" : `${flight.transferCity}转机`}
+                              </div>
                             </div>
                           </div>
                           <div className="text-right">
@@ -3295,7 +3359,7 @@ export default function MoonCartApp() {
                           <div className="flex-1 mx-3 relative">
                             <div className="h-[1px] bg-black/10 w-full"></div>
                             <div className="absolute left-1/2 -translate-x-1/2 -top-[7px] bg-white px-1.5 text-[10px] text-quiet whitespace-nowrap">
-                              {durH}h{durM}m
+                              {flight.stops === 0 ? "直飞" : `${flight.transferCity}转`} · {durH}h{durM}m
                             </div>
                             <div className="absolute -left-1 -top-[3px] h-[7px] w-[7px] rounded-full bg-black/20"></div>
                             <div className="absolute -right-1 -top-[3px] h-[7px] w-[7px] rounded-full bg-black/20"></div>
@@ -3362,6 +3426,7 @@ export default function MoonCartApp() {
           const durH = Math.floor(flight.durationMin / 60);
           const durM = flight.durationMin % 60;
           const cabinLabel = flight.cabin === "economy" ? "经济舱" : flight.cabin === "business" ? "公务舱" : "头等舱";
+          const transferLabel = flight.stops === 0 ? "直飞" : `${flight.transferCity}转机`;
           const pax = flightAdults + flightChildren;
           const baggageOptions = [
             { key: "none" as const, label: "无免费行李", desc: "仅随身小包 7kg", price: 0 },
@@ -3380,11 +3445,12 @@ export default function MoonCartApp() {
             category: "旅行",
             sales: `${flight.onTimeRate}%准点`,
             coupon: `${flightDate} ${flight.departTime} 起飞`,
-            tags: [cabinLabel, flight.aircraft, `${durH}h${durM}m`],
+            tags: [cabinLabel, transferLabel, `${durH}h${durM}m`],
             intro: `${flight.departAirport} → ${flight.arriveAirport}`,
             selectedSpecs: {
               航班: flight.flightNo,
               舱型: cabinLabel,
+              航程: transferLabel,
               日期: flightDate,
               行李: flightBaggage === "none" ? "无托运" : `${flightBaggage} +¥${flightBaggagePrice}`,
               人数: `${flightAdults}成人${flightChildren > 0 ? `+${flightChildren}儿童` : ""}`,
@@ -3406,7 +3472,7 @@ export default function MoonCartApp() {
                     </span>
                     <div>
                       <div className="text-sm font-semibold text-[#1c1c1e]">{flight.airline}</div>
-                      <div className="text-xs text-quiet">{flight.flightNo} · {flight.aircraft}</div>
+                      <div className="text-xs text-quiet">{flight.flightNo} · {flight.aircraft} · {transferLabel}</div>
                     </div>
                   </div>
                   <div className="text-right">
@@ -3424,7 +3490,7 @@ export default function MoonCartApp() {
                   <div className="flex-1 mx-3 relative">
                     <div className="h-[1px] bg-black/10 w-full"></div>
                     <div className="absolute left-1/2 -translate-x-1/2 -top-[7px] bg-white px-1.5 text-[10px] text-quiet whitespace-nowrap">
-                      {durH}h{durM}m
+                      {transferLabel} · {durH}h{durM}m
                     </div>
                     <div className="absolute -left-1 -top-[3px] h-[7px] w-[7px] rounded-full bg-black/20"></div>
                     <div className="absolute -right-1 -top-[3px] h-[7px] w-[7px] rounded-full bg-black/20"></div>
