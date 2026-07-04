@@ -3,25 +3,62 @@
 @tailwind utilities;
 
 :root {
-  --bg-primary: #fff8f5;
-  --bg-card: #fff;
-  --bg-card-hover: #f8f8f8;
-  --text-primary: #1a1a1a;
-  --text-secondary: #8e8e93;
-  --text-tertiary: #c7c7cc;
-  --border-color: rgba(0, 0, 0, 0.05);
-  --shadow-color: rgba(0, 0, 0, 0.08);
+  /* 页面背景 - 暖米色 */
+  --bg-primary: #FDF3EC;
+  /* 卡片背景 */
+  --bg-card: #FFFFFF;
+  /* 商品图片占位背景 */
+  --bg-placeholder: #F1EFE8;
+  /* 主强调色 Coral */
+  --coral: #D85A30;
+  --coral-light: #F5C4B3;
+  --coral-ultra-light: #FAECE7;
+  --coral-text: #993C1D;
+  --coral-text-dark: #712B13;
+  /* 中性色 */
+  --text-1: #2C2C2A;
+  --text-2: #5F5E5A;
+  --text-3: #888780;
+  --text-4: #B4B2A9;
+  /* 功能色 */
+  --price-red: #A32D2D;
+  --price-strike: #B4B2A9;
+  --success-bg: #EAF3DE;
+  --success-icon: #3B6D11;
+  --blind-bg: #FAC775;
+  --blind-icon: #633806;
+  /* 分隔线 */
+  --divider: #E5E2D8;
+  /* 阴影 */
+  --shadow-color: rgba(216, 90, 48, 0.08);
 }
 
 .dark {
-  --bg-primary: #0a0a0a;
-  --bg-card: #1c1c1e;
-  --bg-card-hover: #2c2c2e;
-  --text-primary: #ffffff;
-  --text-secondary: #8e8e93;
-  --text-tertiary: #48484a;
-  --border-color: rgba(255, 255, 255, 0.08);
-  --shadow-color: rgba(0, 0, 0, 0.5);
+  /* 暖棕黑背景 */
+  --bg-primary: #1C1714;
+  --bg-card: #2A2320;
+  --bg-placeholder: #2F2A25;
+  /* 强调色提亮 */
+  --coral: #E8703D;
+  --coral-light: #3D2A20;
+  --coral-ultra-light: #3D2A20;
+  --coral-text: #F0997B;
+  --coral-text-dark: #F5C4B3;
+  /* 中性色 */
+  --text-1: #F1EDE7;
+  --text-2: #B4ACA3;
+  --text-3: #8A8179;
+  --text-4: #6E655C;
+  /* 功能色提亮 */
+  --price-red: #E2504F;
+  --price-strike: #6E655C;
+  --success-bg: #223318;
+  --success-icon: #8FC24C;
+  --blind-bg: #3D2E12;
+  --blind-icon: #F0B84B;
+  /* 分隔线 */
+  --divider: #342C26;
+  --shadow-color: rgba(0, 0, 0, 0.3);
 }
 
 * {
@@ -36,24 +73,18 @@ body {
   min-height: 100vh;
   margin: 0;
   background: var(--bg-primary);
-  color: var(--text-primary);
+  color: var(--text-1);
   font-family: HarmonyOS Sans, Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   letter-spacing: 0;
   transition: background 0.3s ease, color 0.3s ease;
 }
 
 .light body {
-  background:
-    radial-gradient(circle at 12% 6%, rgba(255, 80, 0, 0.12), transparent 32%),
-    radial-gradient(circle at 88% 12%, rgba(255, 184, 0, 0.08), transparent 28%),
-    linear-gradient(180deg, #fff5f0 0%, #fff8f5 40%, #fff 100%);
+  background: #FDF3EC;
 }
 
 .dark body {
-  background:
-    radial-gradient(circle at 12% 6%, rgba(255, 80, 0, 0.08), transparent 32%),
-    radial-gradient(circle at 88% 12%, rgba(255, 184, 0, 0.05), transparent 28%),
-    linear-gradient(180deg, #0a0a0a 0%, #121212 40%, #1c1c1e 100%);
+  background: #1C1714;
 }
 
 button,
