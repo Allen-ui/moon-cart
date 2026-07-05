@@ -582,9 +582,16 @@ export default function MoonCartApp() {
 
   useEffect(() => {
     const theme = darkMode ? "dark" : "light";
-    document.documentElement.classList.remove("light", "dark");
+    const oldTheme = darkMode ? "light" : "dark";
+    document.documentElement.classList.add("no-transitions");
     document.documentElement.classList.add(theme);
+    document.documentElement.classList.remove(oldTheme);
     document.documentElement.style.colorScheme = theme;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        document.documentElement.classList.remove("no-transitions");
+      });
+    });
     try {
       localStorage.removeItem("moon-cart-theme");
     } catch {}
@@ -4641,25 +4648,25 @@ export default function MoonCartApp() {
               </div>
 
               <div className="mt-4 flex items-center gap-3">
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <div className="mb-1 text-xs text-quiet">出发日期</div>
                   <input
                     type="date"
                     value={flightDate}
                     min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
                     onChange={(e) => setFlightDate(e.target.value)}
-                    className="w-full rounded-[16px] bg-black/[0.03] px-4 py-3 text-[15px] font-semibold text-[#1c1c1e] outline-none cursor-pointer box-border"
+                    className="w-full rounded-[16px] bg-black/[0.03] px-3 py-3 text-[15px] font-semibold text-[#1c1c1e] outline-none cursor-pointer box-border"
                   />
                 </div>
                 {flightTripType === "roundtrip" && (
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <div className="mb-1 text-xs text-quiet">返程日期</div>
                     <input
                         type="date"
                         value={flightReturnDate}
                         min={flightDate || new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
                         onChange={(e) => setFlightReturnDate(e.target.value)}
-                        className="w-full rounded-[16px] bg-black/[0.03] px-4 py-3 text-[15px] font-semibold text-[#1c1c1e] outline-none cursor-pointer box-border"
+                        className="w-full rounded-[16px] bg-black/[0.03] px-3 py-3 text-[15px] font-semibold text-[#1c1c1e] outline-none cursor-pointer box-border"
                       />
                   </div>
                 )}

@@ -84,6 +84,7 @@ const criticalAppStyle = `
 .moon-app .from-rose-100,.moon-app .from-amber-100,.moon-app .from-sky-100,.moon-app .from-violet-100,.moon-app .from-emerald-100,.moon-app .from-stone-100{--tw-gradient-from:#F5C4B3}
 .moon-app .to-orange-100,.moon-app .to-lime-100,.moon-app .to-cyan-100,.moon-app .to-pink-100,.moon-app .to-teal-100,.moon-app .to-red-100{--tw-gradient-to:#FAECE7}
 @media (min-width:768px){.moon-app{margin-top:24px;margin-bottom:24px;min-height:860px;border-radius:32px}.moon-app .masonry{column-count:3}}
+.no-transitions .moon-app,.no-transitions .moon-app *,.no-transitions .moon-app *::before,.no-transitions .moon-app *::after{transition:none!important;animation:none!important}
 `;
 
 // 内联脚本：在页面渲染前固定浅色主题，避免旧缓存导致首屏先黑再切白
