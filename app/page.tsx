@@ -1929,7 +1929,6 @@ export default function MoonCartApp() {
                   const title = couponAddProduct.title;
                   const isHotel = isHotelProduct(title);
                   const isRental = isRentalProduct(title);
-                  const tomorrow = getTomorrowStr();
                   return (
                     <div className="mt-5">
                       <div className="mb-3 font-semibold">选择规格</div>
@@ -1941,7 +1940,7 @@ export default function MoonCartApp() {
                           <input
                             type="date"
                             value={couponAddSpecs[isHotel ? "入住日期" : isRental ? "取车日期" : "出发日期"] ?? ""}
-                            min={tomorrow}
+                            min={getTodayStr()}
                             onChange={(e) =>
                               setCouponAddSpecs((prev) => ({
                                 ...prev,
@@ -1956,7 +1955,7 @@ export default function MoonCartApp() {
                               <input
                                 type="date"
                                 value={couponAddSpecs[isHotel ? "退房日期" : "还车日期"] ?? ""}
-                                min={couponAddSpecs[isHotel ? "入住日期" : "取车日期"] ?? tomorrow}
+                                min={couponAddSpecs[isHotel ? "入住日期" : "取车日期"] ?? getTodayStr()}
                                 onChange={(e) =>
                                   setCouponAddSpecs((prev) => ({
                                     ...prev,
@@ -3136,7 +3135,6 @@ export default function MoonCartApp() {
                 const title = selectedProduct.title;
                 const isHotel = isHotelProduct(title);
                 const isRental = isRentalProduct(title);
-                const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
                 return (
                 <div className="mt-5">
                   <div className="mb-3 font-semibold">选择规格</div>
@@ -3149,7 +3147,7 @@ export default function MoonCartApp() {
                       <input
                         type="date"
                         value={selectedSpecs[isHotel ? "入住日期" : isRental ? "取车日期" : "出发日期"] ?? ""}
-                        min={tomorrow}
+                        min={getTodayStr()}
                         onChange={(e) =>
                           setSelectedSpecs((prev) => ({
                             ...prev,
@@ -3164,7 +3162,7 @@ export default function MoonCartApp() {
                           <input
                             type="date"
                             value={selectedSpecs[isHotel ? "退房日期" : "还车日期"] ?? ""}
-                            min={selectedSpecs[isHotel ? "入住日期" : "取车日期"] ?? tomorrow}
+                            min={selectedSpecs[isHotel ? "入住日期" : "取车日期"] ?? getTodayStr()}
                             onChange={(e) =>
                               setSelectedSpecs((prev) => ({
                                 ...prev,
