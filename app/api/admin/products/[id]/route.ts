@@ -10,7 +10,7 @@ export async function PUT(
   { params }: { params: { id: string } },
 ) {
   const token = request.cookies.get("admin_token")?.value;
-  if (!isValidToken(token)) {
+  if (!(await isValidToken(token))) {
     return NextResponse.json({ error: "未授权" }, { status: 401 });
   }
 
@@ -49,7 +49,7 @@ export async function DELETE(
   { params }: { params: { id: string } },
 ) {
   const token = request.cookies.get("admin_token")?.value;
-  if (!isValidToken(token)) {
+  if (!(await isValidToken(token))) {
     return NextResponse.json({ error: "未授权" }, { status: 401 });
   }
 

@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 // 获取所有商品（静态 + 自定义 + 覆盖）
 export async function GET(request: NextRequest) {
   const token = request.cookies.get("admin_token")?.value;
-  if (!isValidToken(token)) {
+  if (!(await isValidToken(token))) {
     return NextResponse.json({ error: "未授权" }, { status: 401 });
   }
 
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
 // 新增自定义商品
 export async function POST(request: NextRequest) {
   const token = request.cookies.get("admin_token")?.value;
-  if (!isValidToken(token)) {
+  if (!(await isValidToken(token))) {
     return NextResponse.json({ error: "未授权" }, { status: 401 });
   }
 

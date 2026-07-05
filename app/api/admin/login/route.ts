@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { validateLogin } from "@/utils/admin-store";
+import { validateLogin, storeToken } from "@/utils/admin-store";
 
 export const runtime = "nodejs";
 
@@ -10,6 +10,7 @@ export async function POST(request: NextRequest) {
     if (!token) {
       return NextResponse.json({ error: "密码错误" }, { status: 401 });
     }
+    await storeToken(token);
     const response = NextResponse.json({ success: true });
     response.cookies.set("admin_token", token, {
       httpOnly: true,

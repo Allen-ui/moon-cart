@@ -1,20 +1,16 @@
 import { promises as fs } from "fs";
 import path from "path";
 import type { Product } from "@/data/products";
+import { supabase, hasSupabaseConfig } from "@/lib/supabase";
 
-// 后台数据存储路径
 const DATA_DIR = path.join(process.cwd(), "data");
 const ADMIN_DATA_FILE = path.join(DATA_DIR, "admin-data.json");
 const UPLOADS_DIR = path.join(process.cwd(), "public", "uploads");
 
 export type AdminData = {
-  // 商品覆盖：以 id 为 key，只存被修改的字段
   productOverrides: Record<number, Partial<Product>>;
-  // 后台新增的自定义商品
   customProducts: Product[];
-  // 店铺主图：以店铺名为 key
   shopImages: Record<string, string>;
-  // 从客户端同步的心愿单
   wishlist: Array<{
     id: string;
     title: string;
@@ -22,7 +18,6 @@ export type AdminData = {
     createdAt: string;
     clientId?: string;
   }>;
-  // 从客户端同步的留言
   messages: Array<{
     id: string;
     content: string;
@@ -39,7 +34,6 @@ const defaultData: AdminData = {
   messages: [],
 };
 
-// 确保目录和数据文件存在
 async function ensureDataFile(): Promise<void> {
   try {
     await fs.access(DATA_DIR);
@@ -51,14 +45,9 @@ async function ensureDataFile(): Promise<void> {
   } catch {
     await fs.writeFile(ADMIN_DATA_FILE, JSON.stringify(defaultData, null, 2), "utf-8");
   }
-  try {
-    await fs.access(UPLOADS_DIR);
-  } catch {
-    await fs.mkdir(UPLOADS_DIR, { recursive: true });
-  }
 }
 
-export async function readAdminData(): Promise<AdminData> {
+async function readFileData(): Promise<AdminData> {
   await ensureDataFile();
   const raw = await fs.readFile(ADMIN_DATA_FILE, "utf-8");
   try {
@@ -69,41 +58,145 @@ export async function readAdminData(): Promise<AdminData> {
   }
 }
 
-export async function writeAdminData(data: AdminData): Promise<void> {
+async function writeFileData(data: AdminData): Promise<void> {
   await ensureDataFile();
   await fs.writeFile(ADMIN_DATA_FILE, JSON.stringify(data, null, 2), "utf-8");
 }
 
-// 保存上传的图片，返回可访问的 URL 路径
+async function readDbData(): Promise<AdminData> {
+  if (!supabase) return defaultData;
+  try {
+    const { data, error } = await supabase
+      .from("admin_data")
+      .select("*")
+      .single();
+    if (error || !data) {
+      return defaultData;
+    }
+    return {
+      ...defaultData,
+      productOverrides: data.product_overrides || {},
+      customProducts: data.custom_products || [],
+      shopImages: data.shop_images || {},
+      wishlist: data.wishlist || [],
+      messages: data.messages || [],
+    };
+  } catch {
+    return defaultData;
+  }
+}
+
+async function writeDbData(data: AdminData): Promise<void> {
+  if (!supabase) return;
+  try {
+    const { error } = await supabase
+      .from("admin_data")
+      .upsert({
+        id: 1,
+        product_overrides: data.productOverrides,
+        custom_products: data.customProducts,
+        shop_images: data.shopImages,
+        wishlist: data.wishlist,
+        messages: data.messages,
+      });
+    if (error) throw error;
+  } catch {
+    // ignore
+  }
+}
+
+export async function readAdminData(): Promise<AdminData> {
+  if (hasSupabaseConfig) {
+    return readDbData();
+  }
+  return readFileData();
+}
+
+export async function writeAdminData(data: AdminData): Promise<void> {
+  if (hasSupabaseConfig) {
+    await writeDbData(data);
+  } else {
+    await writeFileData(data);
+  }
+}
+
 export async function saveUploadedImage(
   buffer: Buffer,
   ext: string,
 ): Promise<string> {
-  await ensureDataFile();
-  const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-  const filePath = path.join(UPLOADS_DIR, filename);
-  await fs.writeFile(filePath, buffer);
-  return `/uploads/${filename}`;
+  if (hasSupabaseConfig && supabase) {
+    const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const { data, error } = await supabase.storage
+      .from("uploads")
+      .upload(filename, buffer, {
+        contentType: `image/${ext}`,
+        upsert: false,
+      });
+    if (error || !data) {
+      throw new Error("上传失败");
+    }
+    const { data: urlData } = supabase.storage
+      .from("uploads")
+      .getPublicUrl(filename);
+    return urlData.publicUrl;
+  } else {
+    await ensureDataFile();
+    const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const filePath = path.join(UPLOADS_DIR, filename);
+    await fs.writeFile(filePath, buffer);
+    return `/uploads/${filename}`;
+  }
 }
 
-// 简单的 session token 管理（内存，重启失效）
 const validTokens = new Set<string>();
+
 const ADMIN_PASSWORD = "admin123";
 
 export function validateLogin(password: string): string | null {
   if (password === ADMIN_PASSWORD) {
-    const token = `tk_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-    validTokens.add(token);
-    return token;
+    return `tk_${Date.now()}_${Math.random().toString(36).slice(2)}`;
   }
   return null;
 }
 
-export function isValidToken(token: string | null | undefined): boolean {
+export async function isValidToken(token: string | null | undefined): Promise<boolean> {
   if (!token) return false;
-  return validTokens.has(token);
+  if (!hasSupabaseConfig) {
+    return validTokens.has(token);
+  }
+  if (!supabase) return false;
+  try {
+    const { data, error } = await supabase
+      .from("admin_tokens")
+      .select("id")
+      .eq("token", token)
+      .single();
+    return !error && !!data;
+  } catch {
+    return false;
+  }
 }
 
-export function revokeToken(token: string): void {
+export async function storeToken(token: string): Promise<void> {
+  if (!hasSupabaseConfig) {
+    validTokens.add(token);
+    return;
+  }
+  if (!supabase) return;
+  try {
+    await supabase.from("admin_tokens").insert({ token });
+  } catch {
+    // ignore
+  }
+}
+
+export async function revokeToken(token: string): Promise<void> {
   validTokens.delete(token);
+  if (hasSupabaseConfig && supabase) {
+    try {
+      await supabase.from("admin_tokens").delete().eq("token", token);
+    } catch {
+      // ignore
+    }
+  }
 }

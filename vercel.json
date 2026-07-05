@@ -1,0 +1,16 @@
+{
+  "buildCommand": "npm run build",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "functions": {
+    "app/api/admin/**/*.ts": {
+      "runtime": "@vercel/node@3.0.0"
+    },
+    "app/api/sync/**/*.ts": {
+      "runtime": "@vercel/node@3.0.0"
+    },
+    "app/api/products/**/*.ts": {
+      "runtime": "@vercel/node@3.0.0"
+    }
+  }
+}

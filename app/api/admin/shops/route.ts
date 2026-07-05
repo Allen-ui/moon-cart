@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 // 获取所有店铺列表及主图
 export async function GET(request: NextRequest) {
   const token = request.cookies.get("admin_token")?.value;
-  if (!isValidToken(token)) {
+  if (!(await isValidToken(token))) {
     return NextResponse.json({ error: "未授权" }, { status: 401 });
   }
 
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
 // 更新店铺主图
 export async function PUT(request: NextRequest) {
   const token = request.cookies.get("admin_token")?.value;
-  if (!isValidToken(token)) {
+  if (!(await isValidToken(token))) {
     return NextResponse.json({ error: "未授权" }, { status: 401 });
   }
 
