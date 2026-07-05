@@ -4661,26 +4661,32 @@ export default function MoonCartApp() {
               <div className="mt-4 flex items-center gap-2">
                 <div className="flex-1 min-w-0">
                   <div className="mb-1 text-xs text-quiet">出发日期</div>
-                  <div className="overflow-hidden rounded-[16px] bg-black/[0.03]">
+                  <div className="relative rounded-[16px] bg-black/[0.03] px-3 py-3">
+                    <div className="text-[14px] font-semibold text-[#1c1c1e] text-center truncate">
+                      {flightDate ? `${parseInt(flightDate.slice(5, 7))}月${parseInt(flightDate.slice(8, 10))}日` : "请选择"}
+                    </div>
                     <input
                       type="date"
                       value={flightDate}
                       min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
                       onChange={(e) => setFlightDate(e.target.value)}
-                      className="w-full px-2.5 py-3 text-[14px] font-semibold text-[#1c1c1e] outline-none cursor-pointer box-border bg-transparent"
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                     />
                   </div>
                 </div>
                 {flightTripType === "roundtrip" && (
                   <div className="flex-1 min-w-0">
                     <div className="mb-1 text-xs text-quiet">返程日期</div>
-                    <div className="overflow-hidden rounded-[16px] bg-black/[0.03]">
+                    <div className="relative rounded-[16px] bg-black/[0.03] px-3 py-3">
+                      <div className="text-[14px] font-semibold text-[#1c1c1e] text-center truncate">
+                        {flightReturnDate ? `${parseInt(flightReturnDate.slice(5, 7))}月${parseInt(flightReturnDate.slice(8, 10))}日` : "请选择"}
+                      </div>
                       <input
                         type="date"
                         value={flightReturnDate}
                         min={flightDate || new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
                         onChange={(e) => setFlightReturnDate(e.target.value)}
-                        className="w-full px-2.5 py-3 text-[14px] font-semibold text-[#1c1c1e] outline-none cursor-pointer box-border bg-transparent"
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                       />
                     </div>
                   </div>
