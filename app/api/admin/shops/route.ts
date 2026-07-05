@@ -7,11 +7,13 @@ export const runtime = "nodejs";
 // 获取所有店铺列表及主图
 export async function GET(request: NextRequest) {
   const token = request.cookies.get("admin_token")?.value;
-  if (!(await isValidToken(token))) {
+  const authP = isValidToken(token);
+  const dataP = readAdminData();
+  if (!(await authP)) {
     return NextResponse.json({ error: "未授权" }, { status: 401 });
   }
 
-  const data = await readAdminData();
+  const data = await dataP;
   // 收集所有有 shop 字段的商品，去重得到店铺列表
   const shopSet = new Set<string>();
   staticProducts.forEach((p) => {
@@ -34,13 +36,15 @@ export async function GET(request: NextRequest) {
 // 更新店铺主图
 export async function PUT(request: NextRequest) {
   const token = request.cookies.get("admin_token")?.value;
-  if (!(await isValidToken(token))) {
+  const authP = isValidToken(token);
+  const bodyP = request.json();
+  const dataP = readAdminData();
+  if (!(await authP)) {
     return NextResponse.json({ error: "未授权" }, { status: 401 });
   }
 
   try {
-    const { shopName, image } = await request.json();
-    const data = await readAdminData();
+    const [{ shopName, image }, data] = await Promise.all([bodyP, dataP]);
     data.shopImages[shopName] = image;
     await writeAdminData(data);
     return NextResponse.json({ success: true });

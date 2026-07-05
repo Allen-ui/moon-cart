@@ -1,10 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { type PurchaseRecord, useShopStore } from "@/store/useShopStore";
 import { money, formatPurchaseDate } from "@/utils/format";
 import { calculateTravelCountdown, parseLocalDate } from "@/utils/order";
+
+const AFTER_SALE_REASONS = [
+  { value: "no_need", label: "不需要了" },
+  { value: "change_mind", label: "买错了/后悔了" },
+  { value: "quality", label: "虚拟品质不满意" },
+  { value: "duplicate", label: "重复购买" },
+  { value: "other", label: "其他原因" },
+];
+
+const AFTER_SALE_DURATION = 15 * 60 * 1000;
+const IS_DEV = process.env.NODE_ENV === "development";
 
 export function OrderCard({
   record,
@@ -15,7 +26,7 @@ export function OrderCard({
   onAfterSale: (id: string) => void;
   onAfterSaleComplete: (id: string) => void;
 }) {
-  const { updateOrderStatus } = useShopStore();
+  const updateOrderStatus = useShopStore((s) => s.updateOrderStatus);
   const [expanded, setExpanded] = useState(false);
   const [showAfterSale, setShowAfterSale] = useState(false);
   const [afterSaleReason, setAfterSaleReason] = useState("");
@@ -25,8 +36,8 @@ export function OrderCard({
   const [progress, setProgress] = useState(0);
   const [travelStatus, setTravelStatus] = useState("");
 
-  const AFTER_SALE_DURATION = 15 * 60 * 1000;
-  const isDev = process.env.NODE_ENV === "development";
+  const onAfterSaleCompleteRef = useRef(onAfterSaleComplete);
+  onAfterSaleCompleteRef.current = onAfterSaleComplete;
 
   useEffect(() => {
     if (record.afterSaleStatus !== "applied" || !record.afterSaleAppliedAt) return;
@@ -38,7 +49,7 @@ export function OrderCard({
       const remaining = Math.max(0, AFTER_SALE_DURATION - elapsed);
 
       if (remaining <= 0) {
-        onAfterSaleComplete(record.id);
+        onAfterSaleCompleteRef.current(record.id);
         setAfterSaleCountdown("");
         return;
       }
@@ -51,14 +62,20 @@ export function OrderCard({
     updateCountdown();
     const timer = window.setInterval(updateCountdown, 1000);
     return () => window.clearInterval(timer);
-  }, [record.afterSaleStatus, record.afterSaleAppliedAt, record.id, onAfterSaleComplete]);
+  }, [record.afterSaleStatus, record.afterSaleAppliedAt, record.id]);
 
   useEffect(() => {
     if (!record.travelStartDate) return;
     
     const updateTravelInfo = () => {
-      const travelNights = record.items[0]?.selectedSpecs ? 
-        Math.round(((parseLocalDate(record.items[0].selectedSpecs["退房日期"] || record.items[0].selectedSpecs["还车日期"] || record.travelStartDate || "")?.getTime() || 0) - (parseLocalDate(record.travelStartDate || "")?.getTime() || 0)) / 86400000) : 1;
+      const specs = record.items[0]?.selectedSpecs;
+      const startDate = parseLocalDate(record.travelStartDate || "");
+      const endDate = parseLocalDate(
+        specs?.["退房日期"] || specs?.["还车日期"] || record.travelStartDate || ""
+      );
+      const travelNights = specs
+        ? Math.round(((endDate?.getTime() || 0) - (startDate?.getTime() || 0)) / 86400000)
+        : 1;
       const countdown = calculateTravelCountdown(record.travelStartDate, record.createdAt, travelNights);
       setCountdownText(countdown.displayText);
       setProgress(countdown.progress);
@@ -88,26 +105,21 @@ export function OrderCard({
     };
   }, [showAfterSale]);
 
-  const reasons = [
-    { value: "no_need", label: "不需要了" },
-    { value: "change_mind", label: "买错了/后悔了" },
-    { value: "quality", label: "虚拟品质不满意" },
-    { value: "duplicate", label: "重复购买" },
-    { value: "other", label: "其他原因" },
-  ];
-
-  const handleSubmit = () => {
+  const handleSubmit = useCallback(() => {
     if (!afterSaleReason) return;
     onAfterSale(record.id);
     setShowAfterSale(false);
     setAfterSaleReason("");
     setCustomReason("");
-  };
+  }, [afterSaleReason, onAfterSale, record.id]);
 
   const firstItem = record.items[0];
   const extraCount = record.items.length - 1;
 
-  const isTravelOrder = record.travelStartDate && record.items.every((item) => item.category === "旅行");
+  const isTravelOrder = useMemo(
+    () => record.travelStartDate && record.items.every((item) => item.category === "旅行"),
+    [record.travelStartDate, record.items]
+  );
 
   return (
     <div className="rounded-[20px] bg-white/70 backdrop-blur-md border border-white/50 overflow-hidden shadow-[0_6px_20px_rgba(0,0,0,0.06)]">
@@ -255,7 +267,7 @@ export function OrderCard({
               请选择售后原因
             </div>
             <div className="mx-3 mt-2 rounded-[12px] bg-white overflow-hidden">
-              {reasons.map((reason, idx) => {
+              {AFTER_SALE_REASONS.map((reason, idx) => {
                 const selected = afterSaleReason === reason.value;
                 return (
                   <div key={reason.value}>

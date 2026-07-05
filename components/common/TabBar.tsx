@@ -3,6 +3,12 @@
 import { Home, ShoppingCart, UserRound } from "lucide-react";
 import type { View } from "@/types";
 
+const TAB_ITEMS: { view: View; label: string; icon: typeof Home }[] = [
+  { view: "home", label: "首页", icon: Home },
+  { view: "cart", label: "购物车", icon: ShoppingCart },
+  { view: "mine", label: "我的", icon: UserRound },
+];
+
 export function TabBar({
   view,
   setView,
@@ -12,15 +18,10 @@ export function TabBar({
   setView: (view: View) => void;
   cartCount: number;
 }) {
-  const items = [
-    { view: "home" as View, label: "首页", icon: Home },
-    { view: "cart" as View, label: "购物车", icon: ShoppingCart },
-    { view: "mine" as View, label: "我的", icon: UserRound },
-  ];
   return (
     <nav className="fixed inset-x-0 bottom-3 z-30 mx-auto flex max-w-[420px] justify-center px-4">
       <div className="flex w-full justify-around rounded-full bg-white/95 p-1.5 shadow-soft backdrop-blur">
-        {items.map((item) => {
+        {TAB_ITEMS.map((item) => {
           const Icon = item.icon;
           const active = view === item.view;
           return (

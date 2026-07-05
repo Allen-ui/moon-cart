@@ -1,11 +1,17 @@
 import { promises as fs } from "fs";
 import path from "path";
+import { cache } from "react";
 import type { Product } from "@/data/products";
 import { supabase, hasSupabaseConfig } from "@/lib/supabase";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const ADMIN_DATA_FILE = path.join(DATA_DIR, "admin-data.json");
 const UPLOADS_DIR = path.join(process.cwd(), "public", "uploads");
+
+const CACHE_TTL = 30_000;
+let cachedData: AdminData | null = null;
+let cacheExpireAt = 0;
+let dataFileInitialized = false;
 
 export type AdminData = {
   productOverrides: Record<number, Partial<Product>>;
@@ -35,6 +41,7 @@ const defaultData: AdminData = {
 };
 
 async function ensureDataFile(): Promise<void> {
+  if (dataFileInitialized) return;
   try {
     await fs.access(DATA_DIR);
   } catch {
@@ -45,6 +52,7 @@ async function ensureDataFile(): Promise<void> {
   } catch {
     await fs.writeFile(ADMIN_DATA_FILE, JSON.stringify(defaultData, null, 2), "utf-8");
   }
+  dataFileInitialized = true;
 }
 
 async function readFileData(): Promise<AdminData> {
@@ -105,11 +113,20 @@ async function writeDbData(data: AdminData): Promise<void> {
   }
 }
 
-export async function readAdminData(): Promise<AdminData> {
-  if (hasSupabaseConfig) {
-    return readDbData();
+export const readAdminData = cache(async (): Promise<AdminData> => {
+  const now = Date.now();
+  if (cachedData && now < cacheExpireAt) {
+    return cachedData;
   }
-  return readFileData();
+  const data = hasSupabaseConfig ? await readDbData() : await readFileData();
+  cachedData = data;
+  cacheExpireAt = now + CACHE_TTL;
+  return data;
+});
+
+function invalidateAdminCache() {
+  cachedData = null;
+  cacheExpireAt = 0;
 }
 
 export async function writeAdminData(data: AdminData): Promise<void> {
@@ -118,6 +135,7 @@ export async function writeAdminData(data: AdminData): Promise<void> {
   } else {
     await writeFileData(data);
   }
+  invalidateAdminCache();
 }
 
 export async function saveUploadedImage(

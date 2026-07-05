@@ -14,25 +14,32 @@ export function DeliveryCard({
   index: number;
   onAccelerate: () => void;
 }) {
-  const steps = getDeliverySteps(order.channel);
+  const isTravel = order.channel === "travel";
   const firstItem = order.items[0];
   const extraCount = order.items.length;
-  const isTravel = order.channel === "travel";
 
   const [progress, setProgress] = useState(0);
-  const [progressPercent, setProgressPercent] = useState(0);
   const [statusText, setStatusText] = useState("");
   const [countdownText, setCountdownText] = useState("");
 
+  const steps = getDeliverySteps(order.channel);
+  const progressPercent = isTravel
+    ? Math.min(92, progress * 0.92)
+    : Math.min(92, 8 + order.stepIndex * 7.2);
+
   useEffect(() => {
     if (isTravel && order.travelStartDate) {
-      const travelNights = order.items[0]?.selectedSpecs
-        ? Math.round(((parseLocalDate(order.items[0].selectedSpecs["退房日期"] || order.items[0].selectedSpecs["还车日期"] || order.travelStartDate)?.getTime() || 0) - (parseLocalDate(order.travelStartDate)?.getTime() || 0)) / 86400000)
+      const specs = order.items[0]?.selectedSpecs;
+      const startDate = parseLocalDate(order.travelStartDate);
+      const endDate = parseLocalDate(
+        specs?.["退房日期"] || specs?.["还车日期"] || order.travelStartDate
+      );
+      const travelNights = specs
+        ? Math.round(((endDate?.getTime() || 0) - (startDate?.getTime() || 0)) / 86400000)
         : 1;
       const update = () => {
         const countdown = calculateTravelCountdown(order.travelStartDate!, order.createdAt, travelNights);
         setProgress(countdown.progress);
-        setProgressPercent(Math.min(92, countdown.progress * 0.92));
         if (countdown.status === "countdown") {
           setStatusText("待出行");
           setCountdownText(countdown.displayText);
@@ -50,11 +57,10 @@ export function DeliveryCard({
     } else {
       const p = Math.round(((order.stepIndex + 1) / steps.length) * 100);
       setProgress(p);
-      setProgressPercent(Math.min(92, 8 + order.stepIndex * 7.2));
       setStatusText(steps[order.stepIndex]);
       setCountdownText("");
     }
-  }, [isTravel, order.travelStartDate, order.createdAt, order.stepIndex, steps]);
+  }, [isTravel, order.travelStartDate, order.createdAt, order.stepIndex, order.channel, order.items]);
 
   return (
     <section className="overflow-hidden rounded-[28px] bg-white shadow-soft">

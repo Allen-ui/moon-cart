@@ -5,6 +5,11 @@ import { persist } from "zustand/middleware";
 import type { Product } from "@/data/products";
 import { parseLocalDate, formatLocalDate } from "@/utils/order";
 
+function specsKey(s?: Record<string, string>): string {
+  if (!s) return "";
+  return Object.keys(s).sort().map((k) => `${k}:${s[k]}`).join("|");
+}
+
 export type BadgeCategory = "streak" | "spend" | "category" | "favorite" | "wishlist";
 
 export type Badge = {
@@ -215,16 +220,14 @@ export const useShopStore = create<ShopState>()(
         set((state) => {
           const price = finalPrice ?? product.price;
           const qty = Math.max(1, Math.floor(quantity));
+          const targetKey = specsKey(selectedSpecs);
           const existing = state.cart.find(
-            (item) =>
-              item.id === product.id &&
-              JSON.stringify(item.selectedSpecs) === JSON.stringify(selectedSpecs)
+            (item) => item.id === product.id && specsKey(item.selectedSpecs) === targetKey
           );
           if (existing) {
             return {
               cart: state.cart.map((item) =>
-                item.id === product.id &&
-                JSON.stringify(item.selectedSpecs) === JSON.stringify(selectedSpecs)
+                item.id === product.id && specsKey(item.selectedSpecs) === targetKey
                   ? { ...item, quantity: item.quantity + qty }
                   : item
               ),
@@ -260,11 +263,13 @@ export const useShopStore = create<ShopState>()(
         })),
       toggleFavorite: (product) =>
         set((state) => {
-          const exists = (state.stats.favorites ?? []).some((f) => f.productId === product.id);
-          const favorites = exists
-            ? (state.stats.favorites ?? []).filter((f) => f.productId !== product.id)
-            : [{ productId: product.id, product, createdAt: new Date().toISOString() }, ...(state.stats.favorites ?? [])];
-          const newStats = { ...state.stats, favorites: favorites.slice(0, 200) };
+          const prev = state.stats.favorites ?? [];
+          const next = prev.filter((f) => f.productId !== product.id);
+          const favorites = (next.length === prev.length
+            ? [{ productId: product.id, product, createdAt: new Date().toISOString() }, ...prev]
+            : next
+          ).slice(0, 200);
+          const newStats = { ...state.stats, favorites };
           return {
             stats: {
               ...newStats,
@@ -313,16 +318,15 @@ export const useShopStore = create<ShopState>()(
           
           let travelStartDate: string | undefined;
           if (orderItems.length > 0 && orderItems.every((item) => item.category === "旅行")) {
-            const dates: string[] = [];
-            orderItems.forEach((item) => {
-              if (item.selectedSpecs) {
-                const date = item.selectedSpecs["出发日期"] || item.selectedSpecs["入住日期"] || item.selectedSpecs["取车日期"];
-                if (date) dates.push(date);
-              }
-            });
-            if (dates.length > 0) {
-              travelStartDate = dates.sort((a, b) => (parseLocalDate(a)?.getTime() || 0) - (parseLocalDate(b)?.getTime() || 0))[0];
+            let earliest: { time: number; raw: string } | null = null;
+            for (const item of orderItems) {
+              if (!item.selectedSpecs) continue;
+              const date = item.selectedSpecs["出发日期"] || item.selectedSpecs["入住日期"] || item.selectedSpecs["取车日期"];
+              if (!date) continue;
+              const t = parseLocalDate(date)?.getTime() ?? 0;
+              if (!earliest || t < earliest.time) earliest = { time: t, raw: date };
             }
+            travelStartDate = earliest?.raw;
           }
           
           const purchase: PurchaseRecord = {
@@ -396,33 +400,46 @@ export const useShopStore = create<ShopState>()(
         set((state) => ({
           stats: { ...state.stats, nickname: nickname.slice(0, 10) }
         })),
-      refreshStreak: () => {
-        const { stats } = get();
-        const today = todayKey();
-        if (stats.lastVisitDate === today) return;
-        const streak = stats.lastVisitDate === yesterdayKey() ? stats.streak + 1 : 1;
-        const newStats = {
-          ...initialStats,
-          ...stats,
-          purchases: stats.purchases ?? [],
-          wishlist: stats.wishlist ?? [],
-          messages: stats.messages ?? [],
-          favorites: stats.favorites ?? [],
-          badges: stats.badges ?? [],
-          streak,
-          lastVisitDate: today
-        };
-        set({
-          stats: {
-            ...newStats,
-            badges: checkBadges(newStats)
-          }
-        });
-      }
+      refreshStreak: () =>
+        set((state) => {
+          const today = todayKey();
+          if (state.stats.lastVisitDate === today) return {};
+          const streak = state.stats.lastVisitDate === yesterdayKey() ? state.stats.streak + 1 : 1;
+          const newStats = {
+            ...initialStats,
+            ...state.stats,
+            purchases: state.stats.purchases ?? [],
+            wishlist: state.stats.wishlist ?? [],
+            messages: state.stats.messages ?? [],
+            favorites: state.stats.favorites ?? [],
+            badges: state.stats.badges ?? [],
+            streak,
+            lastVisitDate: today
+          };
+          return {
+            stats: {
+              ...newStats,
+              badges: checkBadges(newStats)
+            }
+          };
+        })
     }),
     {
       name: "moon-cart-storage",
-      partialize: (state) => ({ cart: state.cart, stats: state.stats })
+      version: 1,
+      partialize: (state) => ({ cart: state.cart, stats: state.stats }),
+      migrate: (persistedState: unknown, version): { cart: unknown; stats: unknown } => {
+        const state = persistedState as { cart?: unknown; stats?: Record<string, unknown> };
+        const stats = { ...(state.stats ?? {}) } as Record<string, unknown>;
+        if (version < 1) {
+          stats.purchases = stats.purchases ?? [];
+          stats.wishlist = stats.wishlist ?? [];
+          stats.messages = stats.messages ?? [];
+          stats.favorites = stats.favorites ?? [];
+          stats.badges = stats.badges ?? [];
+        }
+        return { cart: state.cart ?? [], stats };
+      },
     }
   )
 );

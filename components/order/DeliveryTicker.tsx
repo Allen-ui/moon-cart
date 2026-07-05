@@ -11,31 +11,24 @@ export function DeliveryTicker({
   orders: DeliveryOrder[];
   onOpen: () => void;
 }) {
-  if (!orders.length) return null;
-  const latest = orders[orders.length - 1];
-  const latestSteps = getDeliverySteps(latest.channel);
-  const firstItem = latest.items[0];
-  const extraCount = latest.items.length;
-  const isTravel = latest.channel === "travel";
-
   const [displayProgress, setDisplayProgress] = useState(0);
-  const [displayPercent, setDisplayPercent] = useState(0);
   const [statusText, setStatusText] = useState("");
   const [isVisible, setIsVisible] = useState(true);
   const [showTip, setShowTip] = useState(false);
 
   useEffect(() => {
+    if (!orders.length) return;
+    const latest = orders[orders.length - 1];
+    const latestSteps = getDeliverySteps(latest.channel);
+    const isTravel = latest.channel === "travel";
     if (isTravel && latest.travelStartDate) {
-      const travelNights = latest.items[0]?.selectedSpecs
-        ? Math.round(
-            ((parseLocalDate(
-              latest.items[0].selectedSpecs["退房日期"] ||
-              latest.items[0].selectedSpecs["还车日期"] ||
-              latest.travelStartDate
-            )?.getTime() || 0) -
-              (parseLocalDate(latest.travelStartDate)?.getTime() || 0)) /
-              86400000
-          )
+      const specs = latest.items[0]?.selectedSpecs;
+      const startDate = parseLocalDate(latest.travelStartDate);
+      const endDate = parseLocalDate(
+        specs?.["退房日期"] || specs?.["还车日期"] || latest.travelStartDate
+      );
+      const travelNights = specs
+        ? Math.round(((endDate?.getTime() || 0) - (startDate?.getTime() || 0)) / 86400000)
         : 1;
       const update = () => {
         const countdown = calculateTravelCountdown(
@@ -44,7 +37,6 @@ export function DeliveryTicker({
           travelNights
         );
         setDisplayProgress(countdown.progress);
-        setDisplayPercent(Math.min(92, 8 + countdown.progress * 0.84));
         setStatusText(countdown.displayText);
       };
       update();
@@ -53,12 +45,14 @@ export function DeliveryTicker({
     } else {
       const p = Math.round(((latest.stepIndex + 1) / latestSteps.length) * 100);
       setDisplayProgress(p);
-      setDisplayPercent(Math.min(92, 8 + latest.stepIndex * 7.2));
       setStatusText(latestSteps[latest.stepIndex]);
     }
-  }, [isTravel, latest.travelStartDate, latest.createdAt, latest.stepIndex, latestSteps, latest.items]);
+  }, [orders]);
 
   useEffect(() => {
+    if (!orders.length) return;
+    const latest = orders[orders.length - 1];
+    const isTravel = latest.channel === "travel";
     if (isTravel) {
       const hideTimer = window.setTimeout(() => {
         setIsVisible(false);
@@ -72,7 +66,15 @@ export function DeliveryTicker({
         window.clearTimeout(tipTimer);
       };
     }
-  }, [isTravel, latest.id]);
+  }, [orders]);
+
+  if (!orders.length) return null;
+  const latest = orders[orders.length - 1];
+  const latestSteps = getDeliverySteps(latest.channel);
+  const firstItem = latest.items[0];
+  const extraCount = latest.items.length;
+  const isTravel = latest.channel === "travel";
+  const displayPercent = Math.min(92, 8 + displayProgress * 0.84);
 
   const hasNonTravelOrders = orders.some(o => o.channel !== "travel");
 

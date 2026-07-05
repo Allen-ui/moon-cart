@@ -355,12 +355,22 @@ export interface SearchFlightsParams {
   cityTab: "domestic" | "international";
 }
 
+const INTL_CITY_NAMES = new Set(FLIGHT_CITY_DATA.international.map((c) => c.name));
+const DOMESTIC_CITY_NAMES = new Set(FLIGHT_CITY_DATA.domestic.map((c) => c.name));
+
+const flightCache = new Map<string, FlightResult[]>();
+
 // 纯函数实现：给定参数返回模拟航班结果
 export function searchFlights({ from, to, date, cabin, cityTab }: SearchFlightsParams): FlightResult[] {
   if (!date || from === to) return [];
+  const cacheKey = `${from}|${to}|${date}|${cabin}|${cityTab}`;
+  const cached = flightCache.get(cacheKey);
+  if (cached) return cached;
+
   const isIntl =
     cityTab === "international" ||
-    FLIGHT_CITY_DATA.international.some((city) => city.name === from || city.name === to);
+    INTL_CITY_NAMES.has(from) ||
+    INTL_CITY_NAMES.has(to);
   const airlines = isIntl ? INTERNATIONAL_AIRLINES : DOMESTIC_AIRLINES;
   const seedStr = `${from}${to}${date}${cabin}`;
   let seed = 0;
@@ -378,7 +388,7 @@ export function searchFlights({ from, to, date, cabin, cityTab }: SearchFlightsP
     : ["郑州", "武汉", "西安", "长沙", "重庆", "南京", "昆明", "厦门"]
   ).filter((city) => city !== from && city !== to);
 
-  return Array.from({ length: flightCount }, (_, idx) => {
+  const results = Array.from({ length: flightCount }, (_, idx) => {
     const airline = shuffledAirlines[idx];
     const stops = idx < directFlightCount ? 0 : 1;
     const transferCity = stops > 0 ? transferCities[rand(0, transferCities.length - 1)] : undefined;
@@ -413,4 +423,11 @@ export function searchFlights({ from, to, date, cabin, cityTab }: SearchFlightsP
       transferCity,
     };
   });
+
+  flightCache.set(cacheKey, results);
+  if (flightCache.size > 50) {
+    const firstKey = flightCache.keys().next().value;
+    if (firstKey !== undefined) flightCache.delete(firstKey);
+  }
+  return results;
 }

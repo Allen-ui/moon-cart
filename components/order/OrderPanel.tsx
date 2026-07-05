@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { type DeliveryOrder, getDeliverySteps, calculateTravelCountdown, parseLocalDate } from "@/utils/order";
 import { money } from "@/utils/format";
@@ -18,7 +18,7 @@ export function OrderPanel({
   onAccelerate: (id?: string) => void;
 }) {
   const [activeIndex, setActiveIndex] = useState(0);
-  const [_, forceUpdate] = useState(0);
+  const [tick, setTick] = useState(0);
 
   useEffect(() => {
     if (orders.length) setActiveIndex(orders.length - 1);
@@ -35,7 +35,7 @@ export function OrderPanel({
   useEffect(() => {
     if (!open) return;
     const timer = window.setInterval(() => {
-      forceUpdate((n) => n + 1);
+      setTick((n) => n + 1);
     }, 1000);
     return () => window.clearInterval(timer);
   }, [open]);
@@ -53,21 +53,25 @@ export function OrderPanel({
   const selected = orders[safeIndex];
   const selectedSteps = getDeliverySteps(selected.channel);
   
-  // 旅行订单：计算倒计时进度
-  let progress = 0;
-  let displayText = "";
-  if (selected.channel === "travel" && selected.travelStartDate) {
-    const travelNights = selected.items[0]?.selectedSpecs ? 
-      Math.round(((parseLocalDate(selected.items[0].selectedSpecs["退房日期"] || selected.items[0].selectedSpecs["还车日期"] || selected.travelStartDate)?.getTime() || 0) - (parseLocalDate(selected.travelStartDate)?.getTime() || 0)) / 86400000) : 1;
-    const countdown = calculateTravelCountdown(selected.travelStartDate, selected.createdAt, travelNights);
-    progress = countdown.progress;
-    displayText = countdown.displayText;
-  } else {
-    progress = Math.round(
-      ((selected.stepIndex + 1) / selectedSteps.length) * 100,
-    );
-    displayText = selectedSteps[selected.stepIndex];
-  }
+  const { progress, displayText } = useMemo(() => {
+    if (selected.channel === "travel" && selected.travelStartDate) {
+      const specs = selected.items[0]?.selectedSpecs;
+      const startDate = parseLocalDate(selected.travelStartDate);
+      const endDate = parseLocalDate(
+        specs?.["退房日期"] || specs?.["还车日期"] || selected.travelStartDate
+      );
+      const travelNights = specs
+        ? Math.round(((endDate?.getTime() || 0) - (startDate?.getTime() || 0)) / 86400000)
+        : 1;
+      const countdown = calculateTravelCountdown(selected.travelStartDate, selected.createdAt, travelNights);
+      return { progress: countdown.progress, displayText: countdown.displayText };
+    }
+    return {
+      progress: Math.round(((selected.stepIndex + 1) / selectedSteps.length) * 100),
+      displayText: selectedSteps[selected.stepIndex],
+    };
+    // tick 用于每秒触发重计算
+  }, [selected, selectedSteps, tick]);
 
   return (
     <div className="fixed inset-x-0 top-0 z-40 mx-auto max-w-[460px] px-3 pt-3">

@@ -1,6 +1,9 @@
 import type { Product } from "@/data/products";
 import type { CartItem } from "@/store/useShopStore";
 
+const RE_HOTEL = /酒店|民宿|海景|温泉|亚特兰蒂斯|房|客栈/;
+const RE_RENTAL = /租车|自驾/;
+
 export type DeliveryOrder = {
   id: string;
   amount: number;
@@ -186,25 +189,31 @@ export const calculateTravelCountdown = (
 export const calculateSpecPrice = (product: Product, selectedSpecs: Record<string, string>) => {
   let totalDelta = 0;
   if (product.specs) {
-    product.specs.forEach((spec) => {
+    for (const spec of product.specs) {
       const selectedName = selectedSpecs[spec.label];
-      if (selectedName) {
-        const option = spec.options.find((o) => o.name === selectedName);
-        if (option) {
+      if (!selectedName) continue;
+      for (const option of spec.options) {
+        if (option.name === selectedName) {
           totalDelta += option.priceDelta;
+          break;
         }
       }
-    });
+    }
   }
   return product.price + totalDelta;
 };
 
 export const getChannelFromItems = (items: CartItem[]): "index" | "takeout" | "travel" => {
-  const categories = items.map((i) => i.category);
-  if (categories.length > 0 && categories.every((c) => c === "旅行"))
-    return "travel";
-  if (categories.length > 0 && categories.every((c) => c === "外卖"))
-    return "takeout";
+  if (items.length === 0) return "index";
+  let allTravel = true;
+  let allTakeout = true;
+  for (const item of items) {
+    if (item.category !== "旅行") allTravel = false;
+    if (item.category !== "外卖") allTakeout = false;
+    if (!allTravel && !allTakeout) break;
+  }
+  if (allTravel) return "travel";
+  if (allTakeout) return "takeout";
   return "index";
 };
 
@@ -227,8 +236,8 @@ export const validateTravelSpecs = (
   }
   // 检查日期
   const title = product.title || "";
-  const isHotel = /酒店|民宿|海景|温泉|亚特兰蒂斯|房|客栈/.test(title);
-  const isRental = /租车|自驾/.test(title);
+  const isHotel = RE_HOTEL.test(title);
+  const isRental = RE_RENTAL.test(title);
   const todayStr = getTodayStr();
   if (isHotel) {
     if (!specs["入住日期"]) missing.push("入住日期");

@@ -10,14 +10,16 @@ export async function PUT(
   { params }: { params: { id: string } },
 ) {
   const token = request.cookies.get("admin_token")?.value;
-  if (!(await isValidToken(token))) {
+  const authP = isValidToken(token);
+  const bodyP = request.json();
+  const dataP = readAdminData();
+  if (!(await authP)) {
     return NextResponse.json({ error: "未授权" }, { status: 401 });
   }
 
   try {
+    const [body, data] = await Promise.all([bodyP, dataP]);
     const productId = Number(params.id);
-    const body = await request.json();
-    const data = await readAdminData();
 
     // 检查是否是自定义商品
     const customIndex = data.customProducts.findIndex((p) => p.id === productId);
@@ -49,12 +51,14 @@ export async function DELETE(
   { params }: { params: { id: string } },
 ) {
   const token = request.cookies.get("admin_token")?.value;
-  if (!(await isValidToken(token))) {
+  const authP = isValidToken(token);
+  const dataP = readAdminData();
+  if (!(await authP)) {
     return NextResponse.json({ error: "未授权" }, { status: 401 });
   }
 
   const productId = Number(params.id);
-  const data = await readAdminData();
+  const data = await dataP;
 
   const customIndex = data.customProducts.findIndex((p) => p.id === productId);
   if (customIndex >= 0) {

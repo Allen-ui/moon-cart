@@ -233,6 +233,7 @@ export default function MoonCartApp() {
   const categorySwipeRef = useRef({ x: 0, y: 0, moved: false, swipedAt: 0 });
   const categoryScrollRef = useRef<HTMLDivElement>(null);
   const listTabScrollRef = useRef<HTMLDivElement>(null);
+  const blindBoxTimerRef = useRef<(() => void) | null>(null);
 
   // 滚动 list 页 tab 栏到选中的子分类（居中显示）
   const scrollListTabToCenter = useCallback(() => {
@@ -797,6 +798,12 @@ export default function MoonCartApp() {
     setClaimedCouponAmount(0);
     setCouponTarget(0);
   }, [cartTab]);
+
+  useEffect(() => {
+    return () => {
+      blindBoxTimerRef.current?.();
+    };
+  }, []);
 
   const finalSelectedTotal = canUseCoupon ? Math.max(0, selectedTotal - claimedCouponAmount) : selectedTotal;
 
@@ -1664,6 +1671,7 @@ export default function MoonCartApp() {
 
   const openBlindBox = async () => {
     if (!blindBoxCanOpen) return;
+    blindBoxTimerRef.current?.();
     setBlindBoxOpening(true);
     setBlindBoxOpened(false);
     // 预加载盲盒模块（与开盒动画并行，2秒动画时间内通常已加载完成）
@@ -1676,7 +1684,7 @@ export default function MoonCartApp() {
     setBlindBoxProduct(randomProduct);
     const expireAt = Date.now() + 30 * 60 * 1000;
     setBlindBoxExpireAt(expireAt);
-    updateBlindBoxTimer(expireAt);
+    blindBoxTimerRef.current = updateBlindBoxTimer(expireAt);
     setBlindBoxOpened(true);
     setBlindBoxOpening(false);
     if (!isDev) {
@@ -1707,6 +1715,8 @@ export default function MoonCartApp() {
   const addBlindBoxToCart = () => {
     if (blindBoxProduct) {
       addToCart(blindBoxProduct);
+      blindBoxTimerRef.current?.();
+      blindBoxTimerRef.current = null;
       setBlindBoxProduct(null);
       setBlindBoxExpireAt(null);
       setBlindBoxTimeLeft("");
@@ -1719,6 +1729,8 @@ export default function MoonCartApp() {
       const product = blindBoxProduct;
       addToCart(product);
       completeOrder(product.price, [{ ...product, quantity: 1, finalPrice: product.price }]);
+      blindBoxTimerRef.current?.();
+      blindBoxTimerRef.current = null;
       setBlindBoxProduct(null);
       setBlindBoxExpireAt(null);
       setBlindBoxTimeLeft("");

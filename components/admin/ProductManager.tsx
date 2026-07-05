@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, useDeferredValue } from "react";
 import { Search, Upload, Plus, X, Save, Image as ImageIcon } from "lucide-react";
 import type { Product } from "@/data/products";
+
+const ADD_DIALOG_CATEGORIES = ["外卖", "水果", "零食", "饮料", "数码", "美妆", "鞋服", "家电", "生活用品", "旅行"];
 
 export function ProductManager() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -10,6 +12,7 @@ export function ProductManager() {
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<Product | null>(null);
   const [showAdd, setShowAdd] = useState(false);
+  const deferredSearch = useDeferredValue(search);
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
@@ -30,8 +33,16 @@ export function ProductManager() {
     fetchProducts();
   }, [fetchProducts]);
 
-  const filtered = products.filter((p) =>
-    !search || p.title.includes(search) || p.category.includes(search) || (p.shop ?? "").includes(search)
+  const filtered = useMemo(
+    () =>
+      products.filter(
+        (p) =>
+          !deferredSearch ||
+          p.title.includes(deferredSearch) ||
+          p.category.includes(deferredSearch) ||
+          (p.shop ?? "").includes(deferredSearch)
+      ),
+    [products, deferredSearch]
   );
 
   return (
@@ -315,7 +326,7 @@ function AddDialog({ onClose, onAdded }: { onClose: () => void; onAdded: () => v
   const [saving, setSaving] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const categories = ["外卖", "水果", "零食", "饮料", "数码", "美妆", "鞋服", "家电", "生活用品", "旅行"];
+  const categories = ADD_DIALOG_CATEGORIES;
 
   const handleUpload = async (file: File) => {
     setUploading(true);

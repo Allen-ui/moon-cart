@@ -6,8 +6,9 @@ export const runtime = "nodejs";
 // 客户端同步心愿单和留言到服务器
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const data = await readAdminData();
+    const bodyP = request.json();
+    const dataP = readAdminData();
+    const [body, data] = await Promise.all([bodyP, dataP]);
 
     let updated = false;
 

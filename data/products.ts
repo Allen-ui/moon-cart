@@ -479,33 +479,39 @@ const specTemplates: Record<string, Array<{ label: string; options: Array<{ name
 };
 
 // 旅行类商品根据标题匹配不同规格
+const RE_FLIGHT = /机票/;
+const RE_HOTEL = /酒店|民宿|海景|温泉|亚特兰蒂斯|房|客栈/;
+const RE_TICKET = /门票|通票|套票|船票|游船/;
+const RE_RENTAL = /租车|自驾/;
+const RE_CAMP = /露营|帐篷|营地/;
+
 function getSpecsForTravelProduct(title: string): Array<{ label: string; options: Array<{ name: string; priceDelta: number }> }> {
   // 机票
-  if (/机票/.test(title)) {
+  if (RE_FLIGHT.test(title)) {
     return [
       { label: "舱型", options: [{ name: "经济舱", priceDelta: 0 }, { name: "公务舱", priceDelta: 500 }, { name: "头等舱", priceDelta: 1200 }] },
     ];
   }
   // 酒店/民宿/温泉
-  if (/酒店|民宿|海景|温泉|亚特兰蒂斯|房|客栈/.test(title)) {
+  if (RE_HOTEL.test(title)) {
     return [
       { label: "房型", options: [{ name: "大床房", priceDelta: 0 }, { name: "双床房", priceDelta: 0 }, { name: "亲子房", priceDelta: 100 }, { name: "套房", priceDelta: 300 }] },
     ];
   }
   // 门票/通票/套票/船票
-  if (/门票|通票|套票|船票|游船/.test(title)) {
+  if (RE_TICKET.test(title)) {
     return [
       { label: "票种", options: [{ name: "成人票", priceDelta: 0 }, { name: "学生票", priceDelta: -20 }, { name: "儿童票", priceDelta: -40 }, { name: "老人票", priceDelta: -30 }] },
     ];
   }
   // 租车/自驾
-  if (/租车|自驾/.test(title)) {
+  if (RE_RENTAL.test(title)) {
     return [
       { label: "车型", options: [{ name: "经济型", priceDelta: 0 }, { name: "舒适型", priceDelta: 100 }, { name: "豪华型", priceDelta: 300 }, { name: "SUV", priceDelta: 200 }] },
     ];
   }
   // 露营
-  if (/露营|帐篷|营地/.test(title)) {
+  if (RE_CAMP.test(title)) {
     return [
       { label: "帐篷类型", options: [{ name: "双人帐", priceDelta: 0 }, { name: "四人帐", priceDelta: 100 }] },
     ];
@@ -1254,11 +1260,31 @@ homeSubCategorySeeds.forEach(({ label, category, items }) => {
 
 products.push(...homeSubCategoryProducts);
 
+const productsByCategory = new Map<string, Product[]>();
+const productsBySubCategory = new Map<string, Product[]>();
+const nonBlindBoxProducts: Product[] = [];
+
+for (const p of products) {
+  if (p.category === "盲盒") continue;
+  nonBlindBoxProducts.push(p);
+  if (!productsByCategory.has(p.category)) {
+    productsByCategory.set(p.category, []);
+  }
+  productsByCategory.get(p.category)!.push(p);
+  if (p.subCategory) {
+    if (!productsBySubCategory.has(p.subCategory)) {
+      productsBySubCategory.set(p.subCategory, []);
+    }
+    productsBySubCategory.get(p.subCategory)!.push(p);
+  }
+}
+
 export const pickProducts = (category?: string, subCategory?: string) => {
   if (subCategory) {
-    return products.filter((item) => item.subCategory === subCategory);
+    return productsBySubCategory.get(subCategory) ?? [];
   }
-  return category
-    ? products.filter((item) => item.category === category)
-    : products.filter((item) => item.category !== "盲盒");
+  if (category) {
+    return productsByCategory.get(category) ?? [];
+  }
+  return nonBlindBoxProducts;
 };
