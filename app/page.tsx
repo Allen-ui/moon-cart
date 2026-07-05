@@ -727,6 +727,10 @@ export default function MoonCartApp() {
   const showCategoryTabs = cart.length >= 2 && categoriesInCart.size >= 2;
   const displayCartItems = showCategoryTabs ? cartTabItems : cart;
   const displayCartSelectedItems = showCategoryTabs ? cartTabSelectedItems : selectedItems;
+  const displayCartSelectedTotal = displayCartSelectedItems.reduce(
+    (sum, item) => sum + (item.finalPrice ?? item.price) * item.quantity,
+    0,
+  );
   const isDisplayAllSelected = displayCartItems.length > 0 && displayCartSelectedItems.length === displayCartItems.length;
 
   const takeoutItems = selectedItems.filter((item) => item.category === "外卖");
@@ -746,11 +750,13 @@ export default function MoonCartApp() {
   );
 
   const cartSelectedCategory = cartTab;
-  const currentTotal = cartTab === "takeout"
-    ? takeoutTotal
-    : cartTab === "travel"
-    ? travelTotal
-    : deliveryTotal;
+  const currentTotal = showCategoryTabs
+    ? cartTab === "takeout"
+      ? takeoutTotal
+      : cartTab === "travel"
+      ? travelTotal
+      : deliveryTotal
+    : selectedTotal;
   const couponAmount = couponTarget > 0 ? couponTarget - currentTotal : 0;
   const canUseCoupon = currentTotal > 0 && claimedCouponAmount > 0;
   const canCheckout = claimedCouponAmount > 0 && couponAmount <= 0;
@@ -761,6 +767,11 @@ export default function MoonCartApp() {
       setCouponTarget(0);
     }
   }, [currentTotal, claimedCouponAmount]);
+
+  useEffect(() => {
+    setClaimedCouponAmount(0);
+    setCouponTarget(0);
+  }, [cartTab]);
 
   const finalSelectedTotal = canUseCoupon ? selectedTotal - claimedCouponAmount : selectedTotal;
 
@@ -3547,7 +3558,7 @@ export default function MoonCartApp() {
                     ))}
                   </div>
                 )}
-                {selectedItems.length > 0 && (
+                {displayCartSelectedItems.length > 0 && (
                   <div className="mt-4 rounded-2xl bg-primary/10 px-4 py-3.5 flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
                       <span className="text-xl">🎫</span>
@@ -3577,14 +3588,14 @@ export default function MoonCartApp() {
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-quiet">已选商品</span>
                       <span className="font-medium">
-                        {selectedItems.reduce((sum, item) => sum + item.quantity, 0)} 件
+                        {displayCartSelectedItems.reduce((sum, item) => sum + item.quantity, 0)} 件
                       </span>
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-quiet">商品总价</span>
                       <span className="font-medium">
                         {money(
-                          selectedItems.reduce(
+                          displayCartSelectedItems.reduce(
                             (sum, item) => sum + (item.finalPrice ?? item.price) * item.quantity,
                             0
                           )
@@ -3603,8 +3614,8 @@ export default function MoonCartApp() {
                     <span className="text-2xl font-bold text-price">
                       {money(
                         canUseCoupon
-                          ? selectedTotal - claimedCouponAmount
-                          : selectedTotal
+                          ? displayCartSelectedTotal - claimedCouponAmount
+                          : displayCartSelectedTotal
                       )}
                     </span>
                   </div>
@@ -3629,12 +3640,12 @@ export default function MoonCartApp() {
                     </div>
                     <span className="text-sm text-quiet">全选</span>
                   </button>
-                  {selectedItems.length > 0 && (
+                  {displayCartSelectedItems.length > 0 && (
                     <button
                       onClick={() => {
-                        selectedItems.forEach((item) => removeFromCart(item.id));
+                        displayCartSelectedItems.forEach((item) => removeFromCart(item.id));
                         const newSelected = new Set(selectedCartItems);
-                        selectedItems.forEach((item) => newSelected.delete(item.id));
+                        displayCartSelectedItems.forEach((item) => newSelected.delete(item.id));
                         setSelectedCartItems(newSelected);
                         setClaimedCouponAmount(0);
                         setFlashMessage("已删除选中商品");
@@ -3647,7 +3658,7 @@ export default function MoonCartApp() {
                     </button>
                   )}
                   <div className="flex-1" />
-                  {selectedItems.length === 0 ? (
+                  {displayCartSelectedItems.length === 0 ? (
                     <button
                       className="rounded-full py-2.5 px-5 font-semibold text-white text-sm opacity-40 bg-primary"
                       disabled
@@ -3676,7 +3687,7 @@ export default function MoonCartApp() {
                       <button
                         className="rounded-full py-2.5 px-5 font-bold text-white text-sm bg-primary shadow-soft shrink-0"
                         onClick={() => {
-                          startOrder(canUseCoupon ? selectedTotal - claimedCouponAmount : selectedTotal, selectedItems);
+                          startOrder(canUseCoupon ? displayCartSelectedTotal - claimedCouponAmount : displayCartSelectedTotal, displayCartSelectedItems);
                         }}
                       >
                         {canCheckout ? "结算" : "直接结算"}
