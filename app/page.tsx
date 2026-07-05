@@ -4661,7 +4661,7 @@ export default function MoonCartApp() {
               <div className="mt-4 flex items-center gap-2">
                 <div className="flex-1 min-w-0">
                   <div className="mb-1 text-xs text-quiet">出发日期</div>
-                  <div className="relative rounded-[16px] bg-black/[0.03] px-3 py-3">
+                  <div className="relative flex h-12 items-center justify-center rounded-[16px] bg-black/[0.03] px-3">
                     <div className="text-[14px] font-semibold text-[#1c1c1e] text-center truncate">
                       {flightDate ? `${parseInt(flightDate.slice(5, 7))}月${parseInt(flightDate.slice(8, 10))}日` : "请选择"}
                     </div>
@@ -4669,7 +4669,13 @@ export default function MoonCartApp() {
                       type="date"
                       value={flightDate}
                       min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
-                      onChange={(e) => setFlightDate(e.target.value)}
+                      onChange={(e) => {
+                        const newDate = e.target.value;
+                        setFlightDate(newDate);
+                        if (flightTripType === "roundtrip" && flightReturnDate && flightReturnDate < newDate) {
+                          setFlightReturnDate(newDate);
+                        }
+                      }}
                       className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                     />
                   </div>
@@ -4677,7 +4683,7 @@ export default function MoonCartApp() {
                 {flightTripType === "roundtrip" && (
                   <div className="flex-1 min-w-0">
                     <div className="mb-1 text-xs text-quiet">返程日期</div>
-                    <div className="relative rounded-[16px] bg-black/[0.03] px-3 py-3">
+                    <div className="relative flex h-12 items-center justify-center rounded-[16px] bg-black/[0.03] px-3">
                       <div className="text-[14px] font-semibold text-[#1c1c1e] text-center truncate">
                         {flightReturnDate ? `${parseInt(flightReturnDate.slice(5, 7))}月${parseInt(flightReturnDate.slice(8, 10))}日` : "请选择"}
                       </div>
