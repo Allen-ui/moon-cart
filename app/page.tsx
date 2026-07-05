@@ -57,6 +57,8 @@ import {
   validateTravelSpecs,
   calculateTravelCountdown,
   parseLocalDate,
+  getTodayStr,
+  getTomorrowStr,
   type DeliveryOrder,
 } from "@/utils/order";
 
@@ -367,9 +369,7 @@ export default function MoonCartApp() {
   const [flightTripType, setFlightTripType] = useState<"oneway" | "roundtrip">("oneway");
   const [flightFrom, setFlightFrom] = useState("北京");
   const [flightTo, setFlightTo] = useState("上海");
-  const [flightDate, setFlightDate] = useState(
-    new Date(Date.now() + 86400000).toISOString().slice(0, 10)
-  );
+  const [flightDate, setFlightDate] = useState(getTomorrowStr());
   const [flightReturnDate, setFlightReturnDate] = useState("");
   const [flightCabin, setFlightCabin] = useState<"economy" | "business" | "first">("economy");
   const [flightAdults, setFlightAdults] = useState(1);
@@ -529,7 +529,7 @@ export default function MoonCartApp() {
     const stored = typeof window !== "undefined" ? localStorage.getItem("blindBoxLastOpened") : null;
     if (stored) setBlindBoxLastOpened(stored);
   }, []);
-  const todayKey = new Date().toISOString().slice(0, 10);
+  const todayKey = getTodayStr();
   const blindBoxCanOpen = isDev || blindBoxLastOpened !== todayKey;
   const isAdmin = false;
   const {
@@ -1652,7 +1652,7 @@ export default function MoonCartApp() {
     setBlindBoxOpened(true);
     setBlindBoxOpening(false);
     if (!isDev) {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = getTodayStr();
       localStorage.setItem("blindBoxLastOpened", today);
       setBlindBoxLastOpened(today);
     }
@@ -1929,7 +1929,7 @@ export default function MoonCartApp() {
                   const title = couponAddProduct.title;
                   const isHotel = isHotelProduct(title);
                   const isRental = isRentalProduct(title);
-                  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+                  const tomorrow = getTomorrowStr();
                   return (
                     <div className="mt-5">
                       <div className="mb-3 font-semibold">选择规格</div>
@@ -4668,7 +4668,7 @@ export default function MoonCartApp() {
                     <input
                       type="date"
                       value={flightDate}
-                      min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
+                      min={getTodayStr()}
                       onChange={(e) => {
                         const newDate = e.target.value;
                         setFlightDate(newDate);
@@ -4690,7 +4690,7 @@ export default function MoonCartApp() {
                       <input
                         type="date"
                         value={flightReturnDate}
-                        min={flightDate || new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
+                        min={flightDate || getTodayStr()}
                         onChange={(e) => setFlightReturnDate(e.target.value)}
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                       />

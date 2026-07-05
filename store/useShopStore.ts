@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Product } from "@/data/products";
-import { parseLocalDate } from "@/utils/order";
+import { parseLocalDate, formatLocalDate } from "@/utils/order";
 
 export type BadgeCategory = "streak" | "spend" | "category" | "favorite" | "wishlist";
 
@@ -186,12 +186,12 @@ type ShopState = {
   setNickname: (nickname: string) => void;
 };
 
-const todayKey = () => new Date().toISOString().slice(0, 10);
+const todayKey = () => formatLocalDate(new Date());
 
 const yesterdayKey = () => {
   const date = new Date();
   date.setDate(date.getDate() - 1);
-  return date.toISOString().slice(0, 10);
+  return formatLocalDate(date);
 };
 
 const initialStats: Stats = {
