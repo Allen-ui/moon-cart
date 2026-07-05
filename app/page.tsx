@@ -4595,6 +4595,15 @@ export default function MoonCartApp() {
                 <p className="text-sm text-quiet">暂无留言。</p>
               )}
             </section>
+
+            <button
+              onClick={() => {
+                window.open("/admin", "_blank");
+              }}
+              className="mt-5 mx-2 flex items-center justify-center gap-2 rounded-[28px] bg-[#FF5000] px-5 py-3 text-sm font-semibold text-white shadow-soft"
+            >
+              🎛️ 后台管理
+            </button>
           </Screen>
         )}
 
