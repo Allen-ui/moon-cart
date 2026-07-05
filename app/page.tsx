@@ -783,8 +783,8 @@ export default function MoonCartApp() {
       : deliveryTotal
     : selectedTotal;
   const couponAmount = couponTarget > 0 ? couponTarget - currentTotal : 0;
-  const canUseCoupon = currentTotal > 0 && claimedCouponAmount > 0;
   const canCheckout = claimedCouponAmount > 0 && couponAmount <= 0;
+  const canUseCoupon = canCheckout && selectedTotal >= claimedCouponAmount;
 
   useEffect(() => {
     if (currentTotal <= 0 && claimedCouponAmount > 0) {
@@ -798,7 +798,7 @@ export default function MoonCartApp() {
     setCouponTarget(0);
   }, [cartTab]);
 
-  const finalSelectedTotal = canUseCoupon ? selectedTotal - claimedCouponAmount : selectedTotal;
+  const finalSelectedTotal = canUseCoupon ? Math.max(0, selectedTotal - claimedCouponAmount) : selectedTotal;
 
   const claimCoupon = () => {
     if (currentTotal <= 0 || claimedCouponAmount > 0) return;
@@ -1969,12 +1969,18 @@ export default function MoonCartApp() {
                             type="date"
                             value={couponAddSpecs[isHotel ? "入住日期" : isRental ? "取车日期" : "出发日期"] ?? ""}
                             min={getTodayStr()}
-                            onChange={(e) =>
-                              setCouponAddSpecs((prev) => ({
-                                ...prev,
-                                [isHotel ? "入住日期" : isRental ? "取车日期" : "出发日期"]: e.target.value,
-                              }))
-                            }
+                            onChange={(e) => {
+                              const newDate = e.target.value;
+                              const firstKey = isHotel ? "入住日期" : isRental ? "取车日期" : "出发日期";
+                              const secondKey = isHotel ? "退房日期" : isRental ? "还车日期" : null;
+                              setCouponAddSpecs((prev) => {
+                                const next = { ...prev, [firstKey]: newDate };
+                                if (secondKey && prev[secondKey] && prev[secondKey] <= newDate) {
+                                  next[secondKey] = newDate;
+                                }
+                                return next;
+                              });
+                            }}
                             className="flex-1 rounded-2xl border-0 bg-black/[0.03] px-4 py-3 text-sm outline-none focus:bg-black/[0.05]"
                           />
                           {(isHotel || isRental) && (
@@ -3176,12 +3182,18 @@ export default function MoonCartApp() {
                         type="date"
                         value={selectedSpecs[isHotel ? "入住日期" : isRental ? "取车日期" : "出发日期"] ?? ""}
                         min={getTodayStr()}
-                        onChange={(e) =>
-                          setSelectedSpecs((prev) => ({
-                            ...prev,
-                            [isHotel ? "入住日期" : isRental ? "取车日期" : "出发日期"]: e.target.value,
-                          }))
-                        }
+                        onChange={(e) => {
+                          const newDate = e.target.value;
+                          const firstKey = isHotel ? "入住日期" : isRental ? "取车日期" : "出发日期";
+                          const secondKey = isHotel ? "退房日期" : isRental ? "还车日期" : null;
+                          setSelectedSpecs((prev) => {
+                            const next = { ...prev, [firstKey]: newDate };
+                            if (secondKey && prev[secondKey] && prev[secondKey] <= newDate) {
+                              next[secondKey] = newDate;
+                            }
+                            return next;
+                          });
+                        }}
                         className="flex-1 rounded-2xl border-0 bg-black/[0.03] px-4 py-3 text-sm outline-none focus:bg-black/[0.05]"
                       />
                       {(isHotel || isRental) && (
@@ -3544,12 +3556,12 @@ export default function MoonCartApp() {
                             <div className="flex items-baseline gap-2">
                               <span className="font-bold text-lg text-price">
                                 {money(
-                                  canCheckout && selectedCartItems.has(item.id)
-                                    ? (item.finalPrice ?? item.price) * (1 - claimedCouponAmount / selectedTotal)
+                                  canUseCoupon && selectedCartItems.has(item.id)
+                                    ? Math.max(0, (item.finalPrice ?? item.price) * (1 - claimedCouponAmount / selectedTotal))
                                     : item.finalPrice ?? item.price
                                 )}
                               </span>
-                              {canCheckout && selectedCartItems.has(item.id) && (
+                              {canUseCoupon && selectedCartItems.has(item.id) && (
                                 <span className="text-xs text-quiet line-through">
                                   {money(item.finalPrice ?? item.price)}
                                 </span>
@@ -3640,7 +3652,7 @@ export default function MoonCartApp() {
                     <span className="text-2xl font-bold text-price">
                       {money(
                         canUseCoupon
-                          ? displayCartSelectedTotal - claimedCouponAmount
+                          ? Math.max(0, displayCartSelectedTotal - claimedCouponAmount)
                           : displayCartSelectedTotal
                       )}
                     </span>
@@ -3713,10 +3725,10 @@ export default function MoonCartApp() {
                       <button
                         className="rounded-full py-2.5 px-5 font-bold text-white text-sm bg-primary shadow-soft shrink-0"
                         onClick={() => {
-                          startOrder(canUseCoupon ? displayCartSelectedTotal - claimedCouponAmount : displayCartSelectedTotal, displayCartSelectedItems);
+                          startOrder(canUseCoupon ? Math.max(0, displayCartSelectedTotal - claimedCouponAmount) : displayCartSelectedTotal, displayCartSelectedItems);
                         }}
                       >
-                        {canCheckout ? "结算" : "直接结算"}
+                        {canUseCoupon ? "结算" : "直接结算"}
                       </button>
                     </div>
                   )}

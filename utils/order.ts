@@ -229,14 +229,30 @@ export const validateTravelSpecs = (
   const title = product.title || "";
   const isHotel = /酒店|民宿|海景|温泉|亚特兰蒂斯|房|客栈/.test(title);
   const isRental = /租车|自驾/.test(title);
+  const todayStr = getTodayStr();
   if (isHotel) {
     if (!specs["入住日期"]) missing.push("入住日期");
     if (!specs["退房日期"]) missing.push("退房日期");
+    // 验证日期顺序：退房日期必须晚于入住日期
+    if (specs["入住日期"] && specs["退房日期"]) {
+      if (specs["入住日期"] < todayStr) missing.push("入住日期（不能早于今天）");
+      if (specs["退房日期"] <= specs["入住日期"]) missing.push("退房日期（必须晚于入住日期）");
+    }
   } else if (isRental) {
     if (!specs["取车日期"]) missing.push("取车日期");
     if (!specs["还车日期"]) missing.push("还车日期");
+    // 验证日期顺序：还车日期必须晚于取车日期
+    if (specs["取车日期"] && specs["还车日期"]) {
+      if (specs["取车日期"] < todayStr) missing.push("取车日期（不能早于今天）");
+      if (specs["还车日期"] <= specs["取车日期"]) missing.push("还车日期（必须晚于取车日期）");
+    }
   } else {
     if (!specs["出发日期"]) missing.push("出发日期");
+    else if (specs["出发日期"] < todayStr) missing.push("出发日期（不能早于今天）");
+    // 如果有返程日期，验证不能早于出发日期
+    if (specs["返程日期"] && specs["出发日期"] && specs["返程日期"] < specs["出发日期"]) {
+      missing.push("返程日期（不能早于出发日期）");
+    }
   }
   return { valid: missing.length === 0, missingFields: missing };
 };
