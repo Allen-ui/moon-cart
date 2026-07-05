@@ -710,6 +710,18 @@ export default function MoonCartApp() {
   const cartTabSelectedItems = cartTabItems.filter((item) => selectedCartItems.has(item.id));
   const isTabAllSelected = cartTabItems.length > 0 && cartTabSelectedItems.length === cartTabItems.length;
 
+  const categoriesInCart = new Set(
+    cart.map((item) => {
+      if (item.category === "外卖") return "takeout";
+      if (item.category === "旅行") return "travel";
+      return "delivery";
+    })
+  );
+  const showCategoryTabs = cart.length >= 2 && categoriesInCart.size >= 2;
+  const displayCartItems = showCategoryTabs ? cartTabItems : cart;
+  const displayCartSelectedItems = showCategoryTabs ? cartTabSelectedItems : selectedItems;
+  const isDisplayAllSelected = displayCartItems.length > 0 && displayCartSelectedItems.length === displayCartItems.length;
+
   const takeoutItems = selectedItems.filter((item) => item.category === "外卖");
   const travelItems = selectedItems.filter((item) => item.category === "旅行");
   const deliveryItems = selectedItems.filter((item) => item.category !== "外卖" && item.category !== "旅行");
@@ -3399,35 +3411,37 @@ export default function MoonCartApp() {
               <EmptyCart onShop={() => openCategory(undefined)} />
             ) : (
               <>
-                <div className="flex gap-2 mb-3 sticky top-0 z-10 bg-paper pt-1 pb-2">
-                  {[
-                    { key: "delivery", label: "快递" },
-                    { key: "takeout", label: "外卖" },
-                    { key: "travel", label: "旅游" },
-                  ].map((tab) => {
-                    const count = cart.filter((item) =>
-                      tab.key === "takeout"
-                        ? item.category === "外卖"
-                        : tab.key === "travel"
-                        ? item.category === "旅行"
-                        : item.category !== "外卖" && item.category !== "旅行"
-                    ).length;
-                    return (
-                      <button
-                        key={tab.key}
-                        onClick={() => setCartTab(tab.key as "delivery" | "takeout" | "travel")}
-                        className={`flex-1 py-2 rounded-full text-sm font-medium transition-all ${
-                          cartTab === tab.key
-                            ? "bg-primary text-white shadow-soft"
-                            : "bg-black/[0.04] text-quiet"
-                        }`}
-                      >
-                        {tab.label} {count > 0 && `(${count})`}
-                      </button>
-                    );
-                  })}
-                </div>
-                {cartTabItems.length === 0 ? (
+                {showCategoryTabs && (
+                  <div className="flex gap-2 mb-3 sticky top-0 z-10 bg-paper pt-1 pb-2">
+                    {[
+                      { key: "delivery", label: "快递" },
+                      { key: "takeout", label: "外卖" },
+                      { key: "travel", label: "旅游" },
+                    ].map((tab) => {
+                      const count = cart.filter((item) =>
+                        tab.key === "takeout"
+                          ? item.category === "外卖"
+                          : tab.key === "travel"
+                          ? item.category === "旅行"
+                          : item.category !== "外卖" && item.category !== "旅行"
+                      ).length;
+                      return (
+                        <button
+                          key={tab.key}
+                          onClick={() => setCartTab(tab.key as "delivery" | "takeout" | "travel")}
+                          className={`flex-1 py-2 rounded-full text-sm font-medium transition-all ${
+                            cartTab === tab.key
+                              ? "bg-primary text-white shadow-soft"
+                              : "bg-black/[0.04] text-quiet"
+                          }`}
+                        >
+                          {tab.label} {count > 0 && `(${count})`}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                {displayCartItems.length === 0 ? (
                   <div className="py-16 text-center">
                     <div className="text-4xl mb-3">
                       {cartTab === "takeout" ? "🍔" : cartTab === "travel" ? "✈️" : "📦"}
@@ -3438,95 +3452,95 @@ export default function MoonCartApp() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {cartTabItems.map((item) => (
-                    <div
-                      key={item.id}
-                      className="flex gap-3 rounded-2xl bg-white p-3 items-start shadow-soft"
-                    >
-                      <button
-                        onClick={() => toggleSelectItem(item.id)}
-                        className="self-center shrink-0"
+                    {displayCartItems.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex gap-3 rounded-2xl bg-white p-3 items-start shadow-soft"
                       >
-                        <div
-                          className="w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all"
-                          style={{
-                            borderColor: selectedCartItems.has(item.id) ? '#FF5000' : '#636366',
-                            background: selectedCartItems.has(item.id) ? '#FF5000' : '#ffffff',
-                          }}
+                        <button
+                          onClick={() => toggleSelectItem(item.id)}
+                          className="self-center shrink-0"
                         >
-                        {selectedCartItems.has(item.id) && (
-                          <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
-                        )}
-                        </div>
-                      </button>
-                      <ProductVisual product={item} compact />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="line-clamp-1 font-semibold flex-1 min-w-0 text-sm">
-                            {item.title}
-                          </span>
-                          <span className="shrink-0 text-xs text-quiet">x{item.quantity}</span>
-                        </div>
-                        {item.selectedSpecs && Object.keys(item.selectedSpecs).length > 0 && (
-                          <button
-                            className="mt-1.5 text-left"
-                            onClick={() => {
-                              setEditingCartItem(item);
-                              setEditingSpecs({ ...item.selectedSpecs });
+                          <div
+                            className="w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all"
+                            style={{
+                              borderColor: selectedCartItems.has(item.id) ? '#FF5000' : '#636366',
+                              background: selectedCartItems.has(item.id) ? '#FF5000' : '#ffffff',
                             }}
                           >
-                            <span className="text-xs px-2.5 py-1 rounded-full bg-black/[0.05] text-quiet">
-                              {Object.values(item.selectedSpecs).join(" / ")} ›
-                            </span>
-                          </button>
-                        )}
-                        <div className="mt-2.5 flex items-center justify-between">
-                          <div className="flex items-baseline gap-2">
-                            <span className="font-bold text-lg text-price">
-                              {money(
-                                canCheckout && selectedCartItems.has(item.id)
-                                  ? (item.finalPrice ?? item.price) * (1 - claimedCouponAmount / selectedTotal)
-                                  : item.finalPrice ?? item.price
-                              )}
-                            </span>
-                            {canCheckout && selectedCartItems.has(item.id) && (
-                              <span className="text-xs text-quiet line-through">
-                                {money(item.finalPrice ?? item.price)}
-                              </span>
+                            {selectedCartItems.has(item.id) && (
+                              <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
                             )}
                           </div>
-                          <div className="flex items-center gap-1.5">
-                            <button
-                              onClick={() => changeQuantity(item.id, -1)}
-                              className="w-7 h-7 rounded-full flex items-center justify-center bg-black/[0.05] text-ink hover:bg-black/[0.08] transition-colors"
-                            >
-                              <Minus size={14} />
-                            </button>
-                            <span className="w-6 text-center text-sm font-medium">
-                              {item.quantity}
+                        </button>
+                        <ProductVisual product={item} compact />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="line-clamp-1 font-semibold flex-1 min-w-0 text-sm">
+                              {item.title}
                             </span>
+                            <span className="shrink-0 text-xs text-quiet">x{item.quantity}</span>
+                          </div>
+                          {item.selectedSpecs && Object.keys(item.selectedSpecs).length > 0 && (
                             <button
-                              onClick={() => changeQuantity(item.id, 1)}
-                              className="w-7 h-7 rounded-full flex items-center justify-center bg-black/[0.05] text-ink hover:bg-black/[0.08] transition-colors"
+                              className="mt-1.5 text-left"
+                              onClick={() => {
+                                setEditingCartItem(item);
+                                setEditingSpecs({ ...item.selectedSpecs });
+                              }}
                             >
-                              <Plus size={14} />
+                              <span className="text-xs px-2.5 py-1 rounded-full bg-black/[0.05] text-quiet">
+                                {Object.values(item.selectedSpecs).join(" / ")} ›
+                              </span>
                             </button>
-                            <button
-                              onClick={() => removeFromCart(item.id)}
-                              className="w-7 h-7 rounded-full flex items-center justify-center text-quiet hover:text-coral transition-colors ml-1"
-                            >
-                              <Trash2 size={14} />
-                            </button>
+                          )}
+                          <div className="mt-2.5 flex items-center justify-between">
+                            <div className="flex items-baseline gap-2">
+                              <span className="font-bold text-lg text-price">
+                                {money(
+                                  canCheckout && selectedCartItems.has(item.id)
+                                    ? (item.finalPrice ?? item.price) * (1 - claimedCouponAmount / selectedTotal)
+                                    : item.finalPrice ?? item.price
+                                )}
+                              </span>
+                              {canCheckout && selectedCartItems.has(item.id) && (
+                                <span className="text-xs text-quiet line-through">
+                                  {money(item.finalPrice ?? item.price)}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                onClick={() => changeQuantity(item.id, -1)}
+                                className="w-7 h-7 rounded-full flex items-center justify-center bg-black/[0.05] text-ink hover:bg-black/[0.08] transition-colors"
+                              >
+                                <Minus size={14} />
+                              </button>
+                              <span className="w-6 text-center text-sm font-medium">
+                                {item.quantity}
+                              </span>
+                              <button
+                                onClick={() => changeQuantity(item.id, 1)}
+                                className="w-7 h-7 rounded-full flex items-center justify-center bg-black/[0.05] text-ink hover:bg-black/[0.08] transition-colors"
+                              >
+                                <Plus size={14} />
+                              </button>
+                              <button
+                                onClick={() => removeFromCart(item.id)}
+                                className="w-7 h-7 rounded-full flex items-center justify-center text-quiet hover:text-coral transition-colors ml-1"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
                 )}
-                {cartTabSelectedItems.length > 0 && (
+                {selectedItems.length > 0 && (
                   <div className="mt-4 rounded-2xl bg-primary/10 px-4 py-3.5 flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
                       <span className="text-xl">🎫</span>
@@ -3556,14 +3570,14 @@ export default function MoonCartApp() {
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-quiet">已选商品</span>
                       <span className="font-medium">
-                        {cartTabSelectedItems.reduce((sum, item) => sum + item.quantity, 0)} 件
+                        {selectedItems.reduce((sum, item) => sum + item.quantity, 0)} 件
                       </span>
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-quiet">商品总价</span>
                       <span className="font-medium">
                         {money(
-                          cartTabSelectedItems.reduce(
+                          selectedItems.reduce(
                             (sum, item) => sum + (item.finalPrice ?? item.price) * item.quantity,
                             0
                           )
@@ -3582,14 +3596,8 @@ export default function MoonCartApp() {
                     <span className="text-2xl font-bold text-price">
                       {money(
                         canUseCoupon
-                          ? cartTabSelectedItems.reduce(
-                              (sum, item) => sum + (item.finalPrice ?? item.price) * item.quantity,
-                              0
-                            ) - claimedCouponAmount
-                          : cartTabSelectedItems.reduce(
-                              (sum, item) => sum + (item.finalPrice ?? item.price) * item.quantity,
-                              0
-                            )
+                          ? selectedTotal - claimedCouponAmount
+                          : selectedTotal
                       )}
                     </span>
                   </div>
@@ -3602,11 +3610,11 @@ export default function MoonCartApp() {
                     <div
                       className="w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all"
                       style={{
-                        borderColor: isTabAllSelected ? '#FF5000' : '#636366',
-                        background: isTabAllSelected ? '#FF5000' : 'transparent',
+                        borderColor: isDisplayAllSelected ? '#FF5000' : '#636366',
+                        background: isDisplayAllSelected ? '#FF5000' : 'transparent',
                       }}
                     >
-                      {isTabAllSelected && (
+                      {isDisplayAllSelected && (
                         <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3.5}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                         </svg>
@@ -3614,12 +3622,12 @@ export default function MoonCartApp() {
                     </div>
                     <span className="text-sm text-quiet">全选</span>
                   </button>
-                  {cartTabSelectedItems.length > 0 && (
+                  {selectedItems.length > 0 && (
                     <button
                       onClick={() => {
-                        cartTabSelectedItems.forEach((item) => removeFromCart(item.id));
+                        selectedItems.forEach((item) => removeFromCart(item.id));
                         const newSelected = new Set(selectedCartItems);
-                        cartTabSelectedItems.forEach((item) => newSelected.delete(item.id));
+                        selectedItems.forEach((item) => newSelected.delete(item.id));
                         setSelectedCartItems(newSelected);
                         setClaimedCouponAmount(0);
                         setFlashMessage("已删除选中商品");
@@ -3632,7 +3640,7 @@ export default function MoonCartApp() {
                     </button>
                   )}
                   <div className="flex-1" />
-                  {cartTabSelectedItems.length === 0 ? (
+                  {selectedItems.length === 0 ? (
                     <button
                       className="rounded-full py-2.5 px-5 font-semibold text-white text-sm opacity-40 bg-primary"
                       disabled
@@ -3661,23 +3669,7 @@ export default function MoonCartApp() {
                       <button
                         className="rounded-full py-2.5 px-5 font-bold text-white text-sm bg-primary shadow-soft shrink-0"
                         onClick={() => {
-                          const total = canCheckout
-                            ? (cartTab === "takeout"
-                                ? takeoutTotal
-                                : cartTab === "travel"
-                                ? travelTotal
-                                : deliveryTotal) - claimedCouponAmount
-                            : cartTab === "takeout"
-                            ? takeoutTotal
-                            : cartTab === "travel"
-                            ? travelTotal
-                            : deliveryTotal;
-                          const items = cartTab === "takeout"
-                            ? takeoutItems
-                            : cartTab === "travel"
-                            ? travelItems
-                            : deliveryItems;
-                          startOrder(total, items);
+                          startOrder(canUseCoupon ? selectedTotal - claimedCouponAmount : selectedTotal, selectedItems);
                         }}
                       >
                         {canCheckout ? "结算" : "直接结算"}
@@ -4566,7 +4558,7 @@ export default function MoonCartApp() {
           <Screen key="flight">
             <Header title="机票预订" onBack={() => setView(prevView)} />
 
-            <div className="mt-4 mx-3 rounded-[28px] bg-white p-5 shadow-soft">
+            <div className="mt-4 mx-2 rounded-[28px] bg-white p-5 shadow-soft">
               <div className="flex rounded-[20px] overflow-hidden bg-black/[0.03] p-1">
                 <button
                   onClick={() => setFlightTripType("oneway")}
@@ -4587,9 +4579,13 @@ export default function MoonCartApp() {
               </div>
 
               <div className="mt-5">
+                <div className="flex gap-3 mb-1">
+                  <div className="flex-1 text-xs text-quiet">出发地</div>
+                  <div className="w-7"></div>
+                  <div className="flex-1 text-xs text-quiet">目的地</div>
+                </div>
                 <div className="flex items-center gap-3">
                   <div className="flex-1">
-                    <div className="mb-1 text-xs text-quiet">出发地</div>
                     <button
                       type="button"
                       onClick={() => { setFlightCityPicker("from"); setFlightCityKeyword(""); }}
@@ -4610,21 +4606,23 @@ export default function MoonCartApp() {
                       setFlightFrom(flightTo);
                       setFlightTo(temp);
                     }}
-                    className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-white shadow-soft active:scale-90 transition-transform -mt-5"
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-white shadow-soft active:scale-90 transition-transform"
                   >
                     {flightTripType === "oneway" ? (
-                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13 6l6 6-6 6" />
                       </svg>
                     ) : (
-                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16l-4-4m0 0l4-4m-4 4h20" />
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M7 10l-4 4 4 4" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 14h14" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M17 14l4-4-4-4" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 10H7" />
                       </svg>
                     )}
                   </button>
                   <div className="flex-1">
-                    <div className="mb-1 text-xs text-quiet">目的地</div>
                     <button
                       type="button"
                       onClick={() => { setFlightCityPicker("to"); setFlightCityKeyword(""); }}
