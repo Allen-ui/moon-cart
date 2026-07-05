@@ -4566,7 +4566,7 @@ export default function MoonCartApp() {
           <Screen key="flight">
             <Header title="机票预订" onBack={() => setView(prevView)} />
 
-            <div className="mt-4 mx-4 rounded-[28px] bg-white p-5 shadow-soft">
+            <div className="mt-4 mx-3 rounded-[28px] bg-white p-5 shadow-soft">
               <div className="flex rounded-[20px] overflow-hidden bg-black/[0.03] p-1">
                 <button
                   onClick={() => setFlightTripType("oneway")}
@@ -4637,19 +4637,19 @@ export default function MoonCartApp() {
                     value={flightDate}
                     min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
                     onChange={(e) => setFlightDate(e.target.value)}
-                    className="w-full rounded-[16px] bg-black/[0.03] px-4 py-3 text-[15px] font-semibold text-[#1c1c1e] outline-none cursor-pointer"
+                    className="w-full rounded-[16px] bg-black/[0.03] px-4 py-3 text-[15px] font-semibold text-[#1c1c1e] outline-none cursor-pointer box-border"
                   />
                 </div>
                 {flightTripType === "roundtrip" && (
                   <div className="flex-1">
                     <div className="mb-1 text-xs text-quiet">返程日期</div>
                     <input
-                      type="date"
-                      value={flightReturnDate}
-                      min={flightDate || new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
-                      onChange={(e) => setFlightReturnDate(e.target.value)}
-                      className="w-full rounded-[16px] bg-black/[0.03] px-4 py-3 text-[15px] font-semibold text-[#1c1c1e] outline-none cursor-pointer"
-                    />
+                        type="date"
+                        value={flightReturnDate}
+                        min={flightDate || new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
+                        onChange={(e) => setFlightReturnDate(e.target.value)}
+                        className="w-full rounded-[16px] bg-black/[0.03] px-4 py-3 text-[15px] font-semibold text-[#1c1c1e] outline-none cursor-pointer box-border"
+                      />
                   </div>
                 )}
               </div>
@@ -4949,7 +4949,7 @@ export default function MoonCartApp() {
               <Header title="航班预订" onBack={() => setView("flight")} />
 
               {/* 航班信息卡 */}
-              <div className="mt-4 mx-4 rounded-[24px] bg-white p-5 shadow-soft">
+              <div className="mt-4 mx-3 rounded-[24px] bg-white p-5 shadow-soft">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span
@@ -5002,7 +5002,7 @@ export default function MoonCartApp() {
               </div>
 
               {/* 行李额选择 */}
-              <div className="mt-4 mx-4">
+              <div className="mt-4 mx-3">
                 <div className="text-sm font-semibold mb-3 text-[#1c1c1e]">行李额</div>
                 <div className="space-y-2">
                   {baggageOptions.map((opt) => {
@@ -5040,7 +5040,7 @@ export default function MoonCartApp() {
               </div>
 
               {/* 乘机人 */}
-              <div className="mt-4 mx-4">
+              <div className="mt-4 mx-3">
                 <div className="text-sm font-semibold mb-3 text-[#1c1c1e]">乘机人</div>
                 <div className="rounded-[20px] bg-white p-4 shadow-soft">
                   <div className="flex items-center justify-between py-2 border-b border-black/[0.06]">
@@ -5083,7 +5083,7 @@ export default function MoonCartApp() {
               </div>
 
               {/* 价格明细 */}
-              <div className="mt-4 mx-4 rounded-[20px] bg-white p-5 shadow-soft">
+              <div className="mt-4 mx-3 rounded-[20px] bg-white p-5 shadow-soft">
                 <div className="text-sm font-semibold mb-3 text-[#1c1c1e]">价格明细</div>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
