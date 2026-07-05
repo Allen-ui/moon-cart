@@ -57,7 +57,6 @@ import {
   type DeliveryOrder,
 } from "@/utils/order";
 
-import { CriticalStyles } from "@/components/common/CriticalStyles";
 import { Screen } from "@/components/common/Screen";
 import { Header } from "@/components/common/Header";
 import { TabBar } from "@/components/common/TabBar";
@@ -1474,7 +1473,6 @@ export default function MoonCartApp() {
 
   return (
     <main className="moon-app mx-auto min-h-screen w-full max-w-[460px] bg-paper px-4 pb-24 pt-4 text-ink shadow-soft md:my-6 md:min-h-[860px] md:rounded-[28px]">
-      <CriticalStyles />
       <DeliveryTicker
         orders={activeDeliveries}
         onOpen={() => setOrderPanelOpen(true)}

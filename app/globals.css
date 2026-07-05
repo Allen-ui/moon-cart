@@ -76,7 +76,6 @@ body {
   color: var(--text-1);
   font-family: HarmonyOS Sans, Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   letter-spacing: 0;
-  transition: background 0.3s ease, color 0.3s ease;
 }
 
 .light body {
