@@ -340,7 +340,7 @@ const categorySeed: Record<string, Array<[string, number, string]>> = {
     ["上海迪士尼一日通票", 599, "🏰"],
     ["成都熊猫基地亲子游", 218, "🐼"],
     ["云南6日跟团深度游", 2680, "🌄"],
-    ["海南自驾租车三天", 899, "🚗"],
+    ["海南自驾租车", 299, "🚗"],
     ["马尔代夫度假套餐", 2980, "🏝"],
     ["杭州西湖周边一日游", 388, "🌸"],
     ["呼伦贝尔草原露营两日", 588, "⛺"],
@@ -476,7 +476,48 @@ const specTemplates: Record<string, Array<{ label: string; options: Array<{ name
   ],
 };
 
-function getSpecsForCategory(category: string): Array<{ label: string; options: Array<{ name: string; priceDelta: number }> }> {
+// 旅行类商品根据标题匹配不同规格
+function getSpecsForTravelProduct(title: string): Array<{ label: string; options: Array<{ name: string; priceDelta: number }> }> {
+  // 机票
+  if (/机票/.test(title)) {
+    return [
+      { label: "舱型", options: [{ name: "经济舱", priceDelta: 0 }, { name: "公务舱", priceDelta: 500 }, { name: "头等舱", priceDelta: 1200 }] },
+    ];
+  }
+  // 酒店/民宿/温泉
+  if (/酒店|民宿|海景|温泉|亚特兰蒂斯|房|客栈/.test(title)) {
+    return [
+      { label: "房型", options: [{ name: "大床房", priceDelta: 0 }, { name: "双床房", priceDelta: 0 }, { name: "亲子房", priceDelta: 100 }, { name: "套房", priceDelta: 300 }] },
+    ];
+  }
+  // 门票/通票/套票/船票
+  if (/门票|通票|套票|船票|游船/.test(title)) {
+    return [
+      { label: "票种", options: [{ name: "成人票", priceDelta: 0 }, { name: "学生票", priceDelta: -20 }, { name: "儿童票", priceDelta: -40 }, { name: "老人票", priceDelta: -30 }] },
+    ];
+  }
+  // 租车/自驾
+  if (/租车|自驾/.test(title)) {
+    return [
+      { label: "车型", options: [{ name: "经济型", priceDelta: 0 }, { name: "舒适型", priceDelta: 100 }, { name: "豪华型", priceDelta: 300 }, { name: "SUV", priceDelta: 200 }] },
+    ];
+  }
+  // 露营
+  if (/露营|帐篷|营地/.test(title)) {
+    return [
+      { label: "帐篷类型", options: [{ name: "双人帐", priceDelta: 0 }, { name: "四人帐", priceDelta: 100 }] },
+    ];
+  }
+  // 跟团游/一日游/周边游/朝圣/深度游等
+  return [
+    { label: "套餐", options: [{ name: "标准套餐", priceDelta: 0 }, { name: "豪华套餐", priceDelta: 200 }, { name: "尊享套餐", priceDelta: 500 }] },
+  ];
+}
+
+function getSpecsForCategory(category: string, title?: string): Array<{ label: string; options: Array<{ name: string; priceDelta: number }> }> {
+  if (category === "旅行" && title) {
+    return getSpecsForTravelProduct(title);
+  }
   return specTemplates[category] || [
     { label: "规格", options: [{ name: "标准版", priceDelta: 0 }, { name: "豪华版", priceDelta: 30 }, { name: "尊享版", priceDelta: 60 }] },
   ];
@@ -497,7 +538,7 @@ export const products: Product[] = Object.entries(categorySeed).flatMap(([catego
       intro: "一份不用犹豫的虚拟奖励。加入购物车，获得下单成功的快乐，不产生任何真实消费。",
       palette: palettes[(categoryIndex + itemIndex) % palettes.length],
       emoji,
-      specs: getSpecsForCategory(category),
+      specs: getSpecsForCategory(category, title),
     };
   })
 );
@@ -1195,7 +1236,7 @@ const generateSubCategoryProducts = (
       intro: "一份不用犹豫的虚拟奖励。加入购物车，获得下单成功的快乐，不产生任何真实消费。",
       palette: palettes[idx % palettes.length],
       emoji,
-      specs: getSpecsForCategory(category),
+      specs: getSpecsForCategory(category, title),
     };
   });
 };

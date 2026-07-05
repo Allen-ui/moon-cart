@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { type DeliveryOrder, getDeliverySteps } from "@/utils/order";
+import { type DeliveryOrder, getDeliverySteps, calculateTravelCountdown, parseLocalDate } from "@/utils/order";
 import { money } from "@/utils/format";
 import { BoughtItems } from "./BoughtItems";
 
@@ -18,6 +18,7 @@ export function OrderPanel({
   onAccelerate: (id?: string) => void;
 }) {
   const [activeIndex, setActiveIndex] = useState(0);
+  const [_, forceUpdate] = useState(0);
 
   useEffect(() => {
     if (orders.length) setActiveIndex(orders.length - 1);
@@ -31,13 +32,42 @@ export function OrderPanel({
     return () => window.clearInterval(timer);
   }, [open, orders.length]);
 
+  useEffect(() => {
+    if (!open) return;
+    const timer = window.setInterval(() => {
+      forceUpdate((n) => n + 1);
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const timer = window.setTimeout(() => {
+      onClose();
+    }, 8000);
+    return () => window.clearTimeout(timer);
+  }, [open, onClose]);
+
   if (!open || !orders.length) return null;
   const safeIndex = Math.min(activeIndex, orders.length - 1);
   const selected = orders[safeIndex];
   const selectedSteps = getDeliverySteps(selected.channel);
-  const progress = Math.round(
-    ((selected.stepIndex + 1) / selectedSteps.length) * 100,
-  );
+  
+  // 旅行订单：计算倒计时进度
+  let progress = 0;
+  let displayText = "";
+  if (selected.channel === "travel" && selected.travelStartDate) {
+    const travelNights = selected.items[0]?.selectedSpecs ? 
+      Math.round(((parseLocalDate(selected.items[0].selectedSpecs["退房日期"] || selected.items[0].selectedSpecs["还车日期"] || selected.travelStartDate)?.getTime() || 0) - (parseLocalDate(selected.travelStartDate)?.getTime() || 0)) / 86400000) : 1;
+    const countdown = calculateTravelCountdown(selected.travelStartDate, selected.createdAt, travelNights);
+    progress = countdown.progress;
+    displayText = countdown.displayText;
+  } else {
+    progress = Math.round(
+      ((selected.stepIndex + 1) / selectedSteps.length) * 100,
+    );
+    displayText = selectedSteps[selected.stepIndex];
+  }
 
   return (
     <div className="fixed inset-x-0 top-0 z-40 mx-auto max-w-[460px] px-3 pt-3">
@@ -51,10 +81,10 @@ export function OrderPanel({
           <div className="flex items-center justify-between gap-3">
             <div>
               <div className="text-xs text-white/50">
-                {orders.length > 1 ? `配送中 · 共 ${orders.length} 单` : "订单生成成功"}
+                {orders.length > 1 ? `${selected.channel === "travel" ? "待出行" : "配送中"} · 共 ${orders.length} 单` : "订单生成成功"}
               </div>
               <div className="mt-1 text-xl font-semibold">
-                {selectedSteps[selected.stepIndex]}
+                {displayText}
               </div>
             </div>
             <button
@@ -89,7 +119,7 @@ export function OrderPanel({
             <span className="text-quiet">
               订单 {safeIndex + 1} · {selected.channel === "travel" ? "虚拟出行进度" : "虚拟配送进度"}
             </span>
-            <span className="font-semibold text-price">{progress}%</span>
+            <span className="font-semibold text-price">{Math.round(progress)}%</span>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-black/5">
             <motion.div
@@ -107,12 +137,14 @@ export function OrderPanel({
                 {money(selected.amount)}
               </div>
             </div>
-            <button
-              className="rounded-full bg-primary px-4 py-3 text-sm font-semibold text-white"
-              onClick={() => onAccelerate(selected.id)}
-            >
-              加速配送
-            </button>
+            {selected.channel !== "travel" && (
+              <button
+                className="rounded-full bg-primary px-4 py-3 text-sm font-semibold text-white"
+                onClick={() => onAccelerate(selected.id)}
+              >
+                加速配送
+              </button>
+            )}
           </div>
         </div>
       </motion.section>

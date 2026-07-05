@@ -1,7 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { type DeliveryOrder, getDeliverySteps } from "@/utils/order";
+import { type DeliveryOrder, getDeliverySteps, calculateTravelCountdown, parseLocalDate } from "@/utils/order";
 import { money } from "@/utils/format";
 
 export function DeliveryCard({
@@ -14,11 +15,46 @@ export function DeliveryCard({
   onAccelerate: () => void;
 }) {
   const steps = getDeliverySteps(order.channel);
-  const progress = Math.round(((order.stepIndex + 1) / steps.length) * 100);
   const firstItem = order.items[0];
   const extraCount = order.items.length;
-  const progressPercent = Math.min(92, 8 + order.stepIndex * 7.2);
   const isTravel = order.channel === "travel";
+
+  const [progress, setProgress] = useState(0);
+  const [progressPercent, setProgressPercent] = useState(0);
+  const [statusText, setStatusText] = useState("");
+  const [countdownText, setCountdownText] = useState("");
+
+  useEffect(() => {
+    if (isTravel && order.travelStartDate) {
+      const travelNights = order.items[0]?.selectedSpecs
+        ? Math.round(((parseLocalDate(order.items[0].selectedSpecs["退房日期"] || order.items[0].selectedSpecs["还车日期"] || order.travelStartDate)?.getTime() || 0) - (parseLocalDate(order.travelStartDate)?.getTime() || 0)) / 86400000)
+        : 1;
+      const update = () => {
+        const countdown = calculateTravelCountdown(order.travelStartDate!, order.createdAt, travelNights);
+        setProgress(countdown.progress);
+        setProgressPercent(Math.min(92, countdown.progress * 0.92));
+        if (countdown.status === "countdown") {
+          setStatusText("待出行");
+          setCountdownText(countdown.displayText);
+        } else if (countdown.status === "traveling") {
+          setStatusText("出行中");
+          setCountdownText("旅途愉快～");
+        } else {
+          setStatusText("已完成");
+          setCountdownText("行程已结束");
+        }
+      };
+      update();
+      const timer = window.setInterval(update, 1000);
+      return () => window.clearInterval(timer);
+    } else {
+      const p = Math.round(((order.stepIndex + 1) / steps.length) * 100);
+      setProgress(p);
+      setProgressPercent(Math.min(92, 8 + order.stepIndex * 7.2));
+      setStatusText(steps[order.stepIndex]);
+      setCountdownText("");
+    }
+  }, [isTravel, order.travelStartDate, order.createdAt, order.stepIndex, steps]);
 
   return (
     <section className="overflow-hidden rounded-[28px] bg-white shadow-soft">
@@ -31,13 +67,13 @@ export function DeliveryCard({
           <div>
             <div className="text-xs text-quiet">订单 {index + 1}</div>
             <div className="text-base font-semibold">
-              {firstItem?.title ?? "商品配送中"}
+              {firstItem?.title ?? (isTravel ? "即将出发" : "商品配送中")}
               {extraCount > 1 && ` 等${extraCount}件`}
             </div>
           </div>
         </div>
         <div className="absolute right-4 top-4 rounded-full bg-white px-3 py-1 text-sm font-semibold text-primary">
-          {progress}%
+          {Math.round(progress)}%
         </div>
         <div className="absolute bottom-0 left-0 right-0 px-4 pb-4">
           <div className="relative h-20 rounded-full bg-black/5">
@@ -55,18 +91,18 @@ export function DeliveryCard({
           </div>
           <div className="mt-3 flex items-center justify-between text-xs text-quiet">
             <span>{isTravel ? "出发地" : "商家"}</span>
-            <span>{steps[order.stepIndex]}</span>
+            <span>{isTravel ? countdownText || statusText : statusText}</span>
             <span>{isTravel ? "目的地" : "🏠 收货地址"}</span>
           </div>
         </div>
       </div>
       <div className="p-5">
         <h2 className="text-2xl font-semibold">
-          {steps[order.stepIndex]}
+          {isTravel ? countdownText || statusText : statusText}
         </h2>
         <div className="mt-2 text-sm text-quiet">
           {isTravel
-            ? "行程正在安排中，预计马上出发～"
+            ? (countdownText ? `${statusText}，${countdownText}` : "行程已安排")
             : "骑手正在飞速赶来，预计今晚马上送达～"}
         </div>
         <div className="mt-5 flex items-center justify-between">
@@ -76,12 +112,21 @@ export function DeliveryCard({
               {money(order.amount)}
             </div>
           </div>
-          <button
-            className="rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white shadow-soft"
-            onClick={onAccelerate}
-          >
-            {isTravel ? "加速出行" : "加速配送"}
-          </button>
+          {isTravel ? (
+            <button
+              className="rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white shadow-soft"
+              onClick={onAccelerate}
+            >
+              查看详情
+            </button>
+          ) : (
+            <button
+              className="rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white shadow-soft"
+              onClick={onAccelerate}
+            >
+              加速配送
+            </button>
+          )}
         </div>
       </div>
     </section>

@@ -80,7 +80,7 @@ function ProductCardComponent({
           />
         </button>
       )}
-      {onAddToCart && (
+      {onAddToCart && product.category !== "旅行" && (
         <button
           className="absolute bottom-3 right-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-primary shadow-lg active:scale-90 transition-transform"
           style={{ border: "2px solid var(--bg-primary)" }}

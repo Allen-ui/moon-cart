@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Product } from "@/data/products";
+import { parseLocalDate } from "@/utils/order";
 
 export type BadgeCategory = "streak" | "spend" | "category" | "favorite" | "wishlist";
 
@@ -91,6 +92,7 @@ export type PurchaseRecord = {
   status: "pending" | "shipping" | "completed" | "aftersale";
   afterSaleStatus?: "none" | "applied" | "processing" | "completed";
   afterSaleAppliedAt?: string;
+  travelStartDate?: string;
 };
 
 export type WishItem = {
@@ -164,7 +166,7 @@ const checkBadges = (stats: Stats): string[] => {
 type ShopState = {
   cart: CartItem[];
   stats: Stats;
-  addToCart: (product: Product, selectedSpecs?: Record<string, string>, finalPrice?: number) => void;
+  addToCart: (product: Product, selectedSpecs?: Record<string, string>, finalPrice?: number, quantity?: number) => void;
   addToWishlist: (title: string, note?: string) => void;
   removeFromWishlist: (id: string) => void;
   toggleFavorite: (product: Product) => void;
@@ -209,9 +211,10 @@ export const useShopStore = create<ShopState>()(
     (set, get) => ({
       cart: [],
       stats: initialStats,
-      addToCart: (product, selectedSpecs, finalPrice) =>
+      addToCart: (product, selectedSpecs, finalPrice, quantity = 1) =>
         set((state) => {
           const price = finalPrice ?? product.price;
+          const qty = Math.max(1, Math.floor(quantity));
           const existing = state.cart.find(
             (item) =>
               item.id === product.id &&
@@ -222,12 +225,12 @@ export const useShopStore = create<ShopState>()(
               cart: state.cart.map((item) =>
                 item.id === product.id &&
                 JSON.stringify(item.selectedSpecs) === JSON.stringify(selectedSpecs)
-                  ? { ...item, quantity: item.quantity + 1 }
+                  ? { ...item, quantity: item.quantity + qty }
                   : item
               ),
             };
           }
-          return { cart: [...state.cart, { ...product, quantity: 1, selectedSpecs, finalPrice: price }] };
+          return { cart: [...state.cart, { ...product, quantity: qty, selectedSpecs, finalPrice: price }] };
         }),
       addToWishlist: (title, note) =>
         set((state) => {
@@ -307,6 +310,21 @@ export const useShopStore = create<ShopState>()(
           const happyCount = state.stats.happyCount + 1;
           const orderItems = items?.length ? items : state.cart;
           const orderNo = `SG${Date.now().toString().slice(-8)}${Math.floor(Math.random() * 1000).toString().padStart(3, "0")}`;
+          
+          let travelStartDate: string | undefined;
+          if (orderItems.length > 0 && orderItems.every((item) => item.category === "旅行")) {
+            const dates: string[] = [];
+            orderItems.forEach((item) => {
+              if (item.selectedSpecs) {
+                const date = item.selectedSpecs["出发日期"] || item.selectedSpecs["入住日期"] || item.selectedSpecs["取车日期"];
+                if (date) dates.push(date);
+              }
+            });
+            if (dates.length > 0) {
+              travelStartDate = dates.sort((a, b) => (parseLocalDate(a)?.getTime() || 0) - (parseLocalDate(b)?.getTime() || 0))[0];
+            }
+          }
+          
           const purchase: PurchaseRecord = {
             id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
             orderNo,
@@ -314,7 +332,8 @@ export const useShopStore = create<ShopState>()(
             amount,
             items: orderItems.map((item) => ({ ...item })),
             status: "shipping",
-            afterSaleStatus: "none"
+            afterSaleStatus: "none",
+            travelStartDate,
           };
           const purchases = [purchase, ...(state.stats.purchases ?? [])].slice(0, 30);
           const newStats = {

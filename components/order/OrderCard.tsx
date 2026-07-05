@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { type PurchaseRecord, useShopStore } from "@/store/useShopStore";
 import { money, formatPurchaseDate } from "@/utils/format";
+import { calculateTravelCountdown, parseLocalDate } from "@/utils/order";
 
 export function OrderCard({
   record,
@@ -20,6 +21,9 @@ export function OrderCard({
   const [afterSaleReason, setAfterSaleReason] = useState("");
   const [customReason, setCustomReason] = useState("");
   const [afterSaleCountdown, setAfterSaleCountdown] = useState("");
+  const [countdownText, setCountdownText] = useState("");
+  const [progress, setProgress] = useState(0);
+  const [travelStatus, setTravelStatus] = useState("");
 
   const AFTER_SALE_DURATION = 15 * 60 * 1000;
   const isDev = process.env.NODE_ENV === "development";
@@ -48,6 +52,30 @@ export function OrderCard({
     const timer = window.setInterval(updateCountdown, 1000);
     return () => window.clearInterval(timer);
   }, [record.afterSaleStatus, record.afterSaleAppliedAt, record.id, onAfterSaleComplete]);
+
+  useEffect(() => {
+    if (!record.travelStartDate) return;
+    
+    const updateTravelInfo = () => {
+      const travelNights = record.items[0]?.selectedSpecs ? 
+        Math.round(((parseLocalDate(record.items[0].selectedSpecs["退房日期"] || record.items[0].selectedSpecs["还车日期"] || record.travelStartDate || "")?.getTime() || 0) - (parseLocalDate(record.travelStartDate || "")?.getTime() || 0)) / 86400000) : 1;
+      const countdown = calculateTravelCountdown(record.travelStartDate, record.createdAt, travelNights);
+      setCountdownText(countdown.displayText);
+      setProgress(countdown.progress);
+      
+      if (countdown.status === "countdown") {
+        setTravelStatus("待出行");
+      } else if (countdown.status === "traveling") {
+        setTravelStatus("已出行");
+      } else if (countdown.status === "completed") {
+        setTravelStatus("已完成");
+      }
+    };
+
+    updateTravelInfo();
+    const timer = window.setInterval(updateTravelInfo, 1000);
+    return () => window.clearInterval(timer);
+  }, [record.travelStartDate, record.createdAt]);
 
   useEffect(() => {
     if (showAfterSale) {
@@ -79,6 +107,8 @@ export function OrderCard({
   const firstItem = record.items[0];
   const extraCount = record.items.length - 1;
 
+  const isTravelOrder = record.travelStartDate && record.items.every((item) => item.category === "旅行");
+
   return (
     <div className="rounded-[20px] bg-white/70 backdrop-blur-md border border-white/50 overflow-hidden shadow-[0_6px_20px_rgba(0,0,0,0.06)]">
       <div className="px-4 py-3 flex items-center justify-between border-b border-black/5">
@@ -91,7 +121,9 @@ export function OrderCard({
           </span>
         </div>
         <span className="text-xs font-medium text-primary">
-          {record.status === "pending"
+          {isTravelOrder ? (
+            travelStatus || "待出行"
+          ) : record.status === "pending"
             ? "待付款"
             : record.status === "shipping"
             ? "配送中"
@@ -118,7 +150,10 @@ export function OrderCard({
               {extraCount > 0 && ` 等${record.items.length}件商品`}
             </div>
             <div className="mt-1 text-xs text-quiet">
-              共 {record.items.length} 件
+              {isTravelOrder && record.travelStartDate && (
+                <span className="text-primary">{countdownText}</span>
+              )}
+              {!isTravelOrder && `共 ${record.items.length} 件`}
             </div>
             <div className="mt-1 text-sm font-semibold text-price">
               {money(record.amount)}
@@ -134,6 +169,20 @@ export function OrderCard({
           )}
         </div>
 
+        {isTravelOrder && record.travelStartDate && (
+          <div className="mt-3">
+            <div className="h-1.5 rounded-full bg-black/5 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-primary transition-all duration-500"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            <div className="mt-1 text-xs text-quiet text-right">
+              {Math.round(progress)}%
+            </div>
+          </div>
+        )}
+
         {(expanded || record.items.length === 1) && (
           <div className="mt-4 space-y-4">
             {record.items.length > 1 && (
@@ -143,6 +192,11 @@ export function OrderCard({
                     <span>
                       <span className="mr-2">{item.emoji}</span>
                       {item.title}
+                      {item.selectedSpecs && Object.keys(item.selectedSpecs).length > 0 && (
+                        <span className="text-xs text-quiet ml-2">
+                          {Object.entries(item.selectedSpecs).map(([k, v]) => `${k}:${v}`).join(", ")}
+                        </span>
+                      )}
                     </span>
                     <span className="text-quiet">x{item.quantity}</span>
                   </div>
@@ -151,7 +205,14 @@ export function OrderCard({
             )}
 
             <div className="flex gap-2">
-              {record.status === "shipping" ? (
+              {isTravelOrder && travelStatus === "待出行" ? (
+                <button
+                  onClick={() => updateOrderStatus(record.id, "completed")}
+                  className="flex-1 rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-soft"
+                >
+                  确认出行
+                </button>
+              ) : record.status === "shipping" && !isTravelOrder ? (
                 <button
                   onClick={() => updateOrderStatus(record.id, "completed")}
                   className="flex-1 rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-soft"

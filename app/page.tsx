@@ -54,6 +54,9 @@ import {
   getDeliverySteps,
   calculateSpecPrice,
   getChannelFromItems,
+  validateTravelSpecs,
+  calculateTravelCountdown,
+  parseLocalDate,
   type DeliveryOrder,
 } from "@/utils/order";
 
@@ -136,10 +139,10 @@ const subCategoriesByChannel: Record<
   ],
   travel: [
     { label: "酒店", category: "旅行", keyword: "酒店|住宿|房|民宿|客栈" },
-    { label: "门票", category: "旅行", keyword: "门票|票|园|故宫|迪士尼|影城|长隆|野生动物|冰雪" },
-    { label: "跟团游", category: "旅行", keyword: "跟团|一日游|游|朝圣|深度" },
-    { label: "租车", category: "旅行", keyword: "租车|自驾|车" },
-    { label: "度假", category: "旅行", keyword: "度假|海岛|海滩|海景|三亚|马尔代夫|亚特兰蒂斯|巴厘" },
+    { label: "门票", category: "旅行", keyword: "门票|通票|套票|船票|游船|故宫|迪士尼|影城|长隆|野生动物|冰雪|动物园|乐园" },
+    { label: "跟团游", category: "旅行", keyword: "跟团|一日游|朝圣|深度游|周边游|亲子游" },
+    { label: "租车", category: "旅行", keyword: "租车|自驾" },
+    { label: "度假", category: "旅行", keyword: "度假|马尔代夫|亚特兰蒂斯|巴厘岛度假" },
     { label: "周边游", category: "旅行", keyword: "周边|西湖|长城|慕田峪|古镇|苏州|南京|园林|中山" },
     { label: "游乐园", category: "旅行", keyword: "迪士尼|影城|游乐园|乐园|长隆|野生动物|欢乐谷" },
     { label: "露营", category: "旅行", keyword: "露营|帐篷|营地|草原" },
@@ -278,10 +281,76 @@ export default function MoonCartApp() {
   >();
   const [selectedProduct, setSelectedProduct] = useState<Product>(products[0]);
   const [selectedSpecs, setSelectedSpecs] = useState<Record<string, string>>({});
+  const [productQuantity, setProductQuantity] = useState(1);
+  const getTravelNights = (product: Product, specs: Record<string, string>) => {
+    const title = product.title;
+    const isHotel = /酒店|民宿|住宿|客栈|房/.test(title);
+    const isRental = /租车|自驾/.test(title);
+    if (!isHotel && !isRental) return 1;
+    const startKey = isHotel ? "入住日期" : "取车日期";
+    const endKey = isHotel ? "退房日期" : "还车日期";
+    const start = specs[startKey];
+    const end = specs[endKey];
+    if (!start || !end) return 1;
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+    const diff = Math.round((endDate.getTime() - startDate.getTime()) / 86400000);
+    return Math.max(1, diff);
+  };
+  const getTravelPersonCount = (specs: Record<string, string>) => {
+    const adults = Number(specs["成人"] ?? 1);
+    const children = Number(specs["儿童"] ?? 0);
+    return Math.max(1, adults + children);
+  };
+  const isHotelProduct = (title: string) => /酒店|民宿|住宿|客栈|房/.test(title);
+  const isRentalProduct = (title: string) => /租车|自驾/.test(title);
+  const isTicketProduct = (title: string) => /机票|门票|通票|套票|船票|游船|影城|迪士尼|欢乐谷|乐园/.test(title);
+  const isPerPersonProduct = (title: string) => {
+    if (isHotelProduct(title) || isRentalProduct(title) || isTicketProduct(title)) return false;
+    return true;
+  };
+  const calculateRentalInfo = (dailyRate: number, specs: Record<string, string>) => {
+    const startDate = specs["取车日期"];
+    const endDate = specs["还车日期"];
+    const startTime = specs["取车时间"] ?? "10:00";
+    const endTime = specs["还车时间"] ?? "10:00";
+    if (!startDate || !endDate) {
+      return { days: 1, overtimeHours: 0, overtimeFee: 0, totalDays: 1, totalPrice: dailyRate, extraDays: 0 };
+    }
+    const start = new Date(`${startDate}T${startTime}:00`);
+    const end = new Date(`${endDate}T${endTime}:00`);
+    const totalHours = Math.max(0, (end.getTime() - start.getTime()) / 3600000);
+    const fullDays = Math.floor(totalHours / 24);
+    const overtimeHours = totalHours - fullDays * 24;
+    const hourlyRate = (dailyRate / 24) * 1.2;
+    let overtimeFee = 0;
+    let extraDays = 0;
+    if (overtimeHours > 1 && overtimeHours <= 4) {
+      overtimeFee = Math.ceil(overtimeHours) * hourlyRate;
+    } else if (overtimeHours > 4) {
+      extraDays = 1;
+    }
+    const totalDays = Math.max(1, fullDays + extraDays);
+    const totalPrice = totalDays * dailyRate + overtimeFee;
+    return { days: fullDays, overtimeHours, overtimeFee, totalDays, totalPrice, extraDays };
+  };
+  const getTravelUnitPrice = (product: Product, specs: Record<string, string>) => {
+    const title = product.title;
+    const specPrice = calculateSpecPrice(product, specs);
+    if (isRentalProduct(title)) {
+      const info = calculateRentalInfo(specPrice, specs);
+      return info.totalPrice;
+    }
+    if (isHotelProduct(title)) {
+      return specPrice * getTravelNights(product, specs);
+    }
+    return specPrice;
+  };
   const [lastOrderAmount, setLastOrderAmount] = useState(428);
   const [lastOrderItems, setLastOrderItems] = useState<CartItem[]>([]);
   const deliveryTimerRef = useRef<number | null>(null);
   const [activeDeliveries, setActiveDeliveries] = useState<DeliveryOrder[]>([]);
+  const [viewedTravelOrders, setViewedTravelOrders] = useState<Set<string>>(new Set());
   const [wishInput, setWishInput] = useState("");
   const [messageInput, setMessageInput] = useState("");
   const [showAllBadges, setShowAllBadges] = useState(false);
@@ -290,6 +359,10 @@ export default function MoonCartApp() {
   const [editingSpecs, setEditingSpecs] = useState<Record<string, string>>({});
   const [quickAddProduct, setQuickAddProduct] = useState<Product | null>(null);
   const [quickAddSpecs, setQuickAddSpecs] = useState<Record<string, string>>({});
+  const [couponAddProduct, setCouponAddProduct] = useState<Product | null>(null);
+  const [couponAddSpecs, setCouponAddSpecs] = useState<Record<string, string>>({});
+  const [couponAddQuantity, setCouponAddQuantity] = useState(1);
+  const [specHint, setSpecHint] = useState("");
   const [orderPanelOpen, setOrderPanelOpen] = useState(false);
   const [flightTripType, setFlightTripType] = useState<"oneway" | "roundtrip">("oneway");
   const [flightFrom, setFlightFrom] = useState("北京");
@@ -319,6 +392,50 @@ export default function MoonCartApp() {
     return () => { cancelled = true; };
   }, [view, flightCityData]);
   const [flightBaggage, setFlightBaggage] = useState<"none" | "20kg" | "40kg">("none");
+  const [hotRoutesSeed, setHotRoutesSeed] = useState(Date.now());
+  const [recommendSeed, setRecommendSeed] = useState(Date.now());
+
+  const ALL_ROUTES = useMemo(() => [
+    { from: "北京", to: "上海", price: 680, tag: "直飞", duration: "2h15m" },
+    { from: "上海", to: "广州", price: 720, tag: "直飞", duration: "2h30m" },
+    { from: "广州", to: "成都", price: 850, tag: "直飞", duration: "2h45m" },
+    { from: "成都", to: "杭州", price: 690, tag: "直飞", duration: "2h40m" },
+    { from: "杭州", to: "深圳", price: 780, tag: "直飞", duration: "2h20m" },
+    { from: "深圳", to: "北京", price: 820, tag: "直飞", duration: "3h10m" },
+    { from: "北京", to: "广州", price: 910, tag: "直飞", duration: "3h20m" },
+    { from: "上海", to: "成都", price: 880, tag: "直飞", duration: "3h05m" },
+    { from: "北京", to: "成都", price: 750, tag: "直飞", duration: "2h55m" },
+    { from: "广州", to: "杭州", price: 660, tag: "直飞", duration: "2h15m" },
+    { from: "深圳", to: "上海", price: 730, tag: "直飞", duration: "2h25m" },
+    { from: "成都", to: "深圳", price: 810, tag: "直飞", duration: "2h50m" },
+    { from: "杭州", to: "北京", price: 700, tag: "直飞", duration: "2h10m" },
+    { from: "上海", to: "北京", price: 650, tag: "直飞", duration: "2h15m" },
+    { from: "北京", to: "深圳", price: 890, tag: "直飞", duration: "3h15m" },
+    { from: "成都", to: "广州", price: 830, tag: "直飞", duration: "2h40m" },
+    { from: "广州", to: "上海", price: 700, tag: "直飞", duration: "2h30m" },
+    { from: "深圳", to: "成都", price: 800, tag: "直飞", duration: "2h50m" },
+    { from: "北京", to: "杭州", price: 690, tag: "直飞", duration: "2h10m" },
+    { from: "上海", to: "深圳", price: 740, tag: "直飞", duration: "2h25m" },
+  ], []);
+
+  // 热门航线：从 ALL_ROUTES 中取前6条（固定热门）
+  const hotRoutes = useMemo(() => {
+    const shuffled = [...ALL_ROUTES].sort(() => {
+      const seed = hotRoutesSeed;
+      return ((seed * 9301 + 49297) % 233280) / 233280 - 0.5;
+    });
+    return shuffled.slice(0, 6);
+  }, [ALL_ROUTES, hotRoutesSeed]);
+
+  // 推荐航线：随机取5条
+  const recommendedRoutes = useMemo(() => {
+    const shuffled = [...ALL_ROUTES].sort(() => {
+      const seed = recommendSeed;
+      return ((seed * 9301 + 49297) % 233280) / 233280 - 0.5;
+    });
+    return shuffled.slice(0, 5);
+  }, [ALL_ROUTES, recommendSeed]);
+
   const flightBaggagePrice = flightBaggage === "none" ? 0 : flightBaggage === "20kg" ? 80 : 180;
   const flightTotalPrice = useMemo(() => {
     if (!selectedFlight) return 0;
@@ -352,17 +469,25 @@ export default function MoonCartApp() {
     else arr.sort((a, b) => a.durationMin - b.durationMin);
     return arr;
   }, [flightResults, flightSortBy]);
-  const runFlightSearch = async () => {
-    if (!flightDate || flightFrom === flightTo) return;
+  const runFlightSearch = async (opts?: { from?: string; to?: string; date?: string; cabin?: "economy" | "business" | "first" }) => {
+    const from = opts?.from ?? flightFrom;
+    const to = opts?.to ?? flightTo;
+    const date = opts?.date ?? flightDate;
+    const cabin = opts?.cabin ?? flightCabin;
+    if (!date || from === to) return;
+    if (opts?.from) setFlightFrom(opts.from);
+    if (opts?.to) setFlightTo(opts.to);
+    if (opts?.date) setFlightDate(opts.date);
+    if (opts?.cabin) setFlightCabin(opts.cabin);
     setFlightSearching(true);
     setFlightResults(null);
     const { searchFlights } = await getFlightsModule();
     setTimeout(() => {
       const results = searchFlights({
-        from: flightFrom,
-        to: flightTo,
-        date: flightDate,
-        cabin: flightCabin,
+        from,
+        to,
+        date,
+        cabin,
         cityTab: flightCityTab,
       });
       setFlightResults(results);
@@ -375,6 +500,7 @@ export default function MoonCartApp() {
   const [orderSearchQuery, setOrderSearchQuery] = useState("");
   const [orderStatusFilter, setOrderStatusFilter] = useState<"all" | "pending" | "shipping" | "completed" | "aftersale">("all");
   const [selectedCartItems, setSelectedCartItems] = useState<Set<number>>(new Set());
+  const [cartTab, setCartTab] = useState<"delivery" | "takeout" | "travel">("delivery");
   const [claimedCouponAmount, setClaimedCouponAmount] = useState(0);
   const [couponTarget, setCouponTarget] = useState(0);
   const [showCouponToast, setShowCouponToast] = useState(false);
@@ -478,6 +604,11 @@ export default function MoonCartApp() {
         const completed: DeliveryOrder[] = [];
         const moving = orders
           .map((order) => {
+            // 旅行订单：实时倒计时，不自动完成，保留在配送中列表
+            if (order.channel === "travel" && order.travelStartDate) {
+              return order;
+            }
+            // 非旅行订单：每6秒推进1步
             const steps = getDeliverySteps(order.channel);
             const stepIndex = Math.min(
               steps.length - 1,
@@ -489,6 +620,9 @@ export default function MoonCartApp() {
             return nextOrder;
           })
           .filter((order) => {
+            if (order.channel === "travel") {
+              return true;
+            }
             const steps = getDeliverySteps(order.channel);
             return order.stepIndex < steps.length - 1;
           });
@@ -500,6 +634,12 @@ export default function MoonCartApp() {
           setIsBlindBoxOrder(false);
         });
 
+        const nonTravelCount = moving.filter(o => o.channel !== "travel").length;
+        if (!nonTravelCount && moving.length > 0 && deliveryTimerRef.current) {
+          window.clearInterval(deliveryTimerRef.current);
+          deliveryTimerRef.current = null;
+          if (completed.length) setView("done");
+        }
         if (!moving.length && deliveryTimerRef.current) {
           window.clearInterval(deliveryTimerRef.current);
           deliveryTimerRef.current = null;
@@ -507,24 +647,38 @@ export default function MoonCartApp() {
         }
         return moving;
       });
-    }, 6000);
+    }, activeDeliveries.some((o: DeliveryOrder) => o.channel === "travel") ? 1000 : 6000);
   }, [activeDeliveries.length, completeOrder]);
 
   const visibleProducts = useMemo(() => {
     const channelCats = channelCategories[listChannel];
     const kw = subKeyword.trim().toLowerCase();
+    const matchKeyword = (title: string, keyword: string) => {
+      if (!keyword) return true;
+      if (keyword.includes("|")) {
+        return new RegExp(keyword, "i").test(title);
+      }
+      return title.toLowerCase().includes(keyword);
+    };
     if (selectedSubCategory) {
-      return pickProducts(undefined, selectedSubCategory)
-        .filter((p) => !kw || p.title.toLowerCase().includes(kw));
+      const subProducts = pickProducts(undefined, selectedSubCategory);
+      if (subProducts.length > 0) {
+        return subProducts.filter((p) => matchKeyword(p.title, kw));
+      }
+      if (selectedCategory && kw) {
+        return pickProducts(selectedCategory)
+          .filter((p) => channelCats.includes(p.category))
+          .filter((p) => matchKeyword(p.title, kw));
+      }
     }
     if (selectedCategory) {
       return pickProducts(selectedCategory)
         .filter((p) => channelCats.includes(p.category))
-        .filter((p) => !kw || p.title.toLowerCase().includes(kw));
+        .filter((p) => matchKeyword(p.title, kw));
     }
     return products
       .filter((p) => p.category !== "盲盒" && channelCats.includes(p.category))
-      .filter((p) => !kw || p.title.toLowerCase().includes(kw));
+      .filter((p) => matchKeyword(p.title, kw));
   }, [selectedCategory, selectedSubCategory, listChannel, subKeyword]);
   const cartTotal = cart.reduce(
     (sum, item) => sum + (item.finalPrice ?? item.price) * item.quantity,
@@ -546,6 +700,16 @@ export default function MoonCartApp() {
   const selectedCount = selectedItems.reduce((sum, item) => sum + item.quantity, 0);
   const isAllSelected = cart.length > 0 && selectedCartItems.size === cart.length;
 
+  const cartTabItems = cart.filter((item) =>
+    cartTab === "takeout"
+      ? item.category === "外卖"
+      : cartTab === "travel"
+      ? item.category === "旅行"
+      : item.category !== "外卖" && item.category !== "旅行"
+  );
+  const cartTabSelectedItems = cartTabItems.filter((item) => selectedCartItems.has(item.id));
+  const isTabAllSelected = cartTabItems.length > 0 && cartTabSelectedItems.length === cartTabItems.length;
+
   const takeoutItems = selectedItems.filter((item) => item.category === "外卖");
   const travelItems = selectedItems.filter((item) => item.category === "旅行");
   const deliveryItems = selectedItems.filter((item) => item.category !== "外卖" && item.category !== "旅行");
@@ -562,10 +726,12 @@ export default function MoonCartApp() {
     0,
   );
 
-  const cartSelectedCategory = takeoutItems.length > 0 ? "takeout" : travelItems.length > 0 ? "travel" : deliveryItems.length > 0 ? "delivery" : null;
-  const mixedCategories = (takeoutItems.length > 0 ? 1 : 0) + (travelItems.length > 0 ? 1 : 0) + (deliveryItems.length > 0 ? 1 : 0) > 1;
-
-  const currentTotal = cartSelectedCategory === "takeout" ? takeoutTotal : cartSelectedCategory === "travel" ? travelTotal : deliveryTotal;
+  const cartSelectedCategory = cartTab;
+  const currentTotal = cartTab === "takeout"
+    ? takeoutTotal
+    : cartTab === "travel"
+    ? travelTotal
+    : deliveryTotal;
   const couponAmount = couponTarget > 0 ? couponTarget - currentTotal : 0;
   const canUseCoupon = currentTotal > 0 && claimedCouponAmount > 0;
   const canCheckout = claimedCouponAmount > 0 && couponAmount <= 0;
@@ -580,7 +746,7 @@ export default function MoonCartApp() {
   const finalSelectedTotal = canUseCoupon ? selectedTotal - claimedCouponAmount : selectedTotal;
 
   const claimCoupon = () => {
-    if (currentTotal <= 0) return;
+    if (currentTotal <= 0 || claimedCouponAmount > 0) return;
     const target = Math.ceil(currentTotal / 50) * 50;
     const coupon = target * 0.1;
     setCouponTarget(target);
@@ -617,10 +783,14 @@ export default function MoonCartApp() {
   };
 
   const toggleSelectAll = () => {
-    if (isAllSelected) {
-      setSelectedCartItems(new Set());
+    if (isTabAllSelected) {
+      const newSelected = new Set(selectedCartItems);
+      cartTabItems.forEach((item) => newSelected.delete(item.id));
+      setSelectedCartItems(newSelected);
     } else {
-      setSelectedCartItems(new Set(cart.map((item) => item.id)));
+      const newSelected = new Set(selectedCartItems);
+      cartTabItems.forEach((item) => newSelected.add(item.id));
+      setSelectedCartItems(newSelected);
     }
   };
 
@@ -642,6 +812,22 @@ export default function MoonCartApp() {
   }, [couponAmount, cart, products, cartSelectedCategory]);
 
   const addCouponProduct = (product: Product) => {
+    const hasSpecs = product.specs && product.specs.length > 0;
+    if (product.category === "旅行" || hasSpecs) {
+      setCouponModalOpen(false);
+      setCouponAddProduct(product);
+      const defaultSpecs: Record<string, string> = {};
+      if (product.specs) {
+        product.specs.forEach((spec) => {
+          if (spec.options.length > 0) {
+            defaultSpecs[spec.label] = spec.options[0].name;
+          }
+        });
+      }
+      setCouponAddSpecs(defaultSpecs);
+      setCouponAddQuantity(1);
+      return;
+    }
     addToCart(product);
     const newSelected = new Set(selectedCartItems);
     newSelected.add(product.id);
@@ -793,7 +979,20 @@ export default function MoonCartApp() {
   const openProduct = useCallback(
     (product: Product) => {
       setSelectedProduct(product);
-      setSelectedSpecs({});
+      const defaultSpecs: Record<string, string> = {};
+      product.specs?.forEach((spec) => {
+        if (spec.options.length > 0) {
+          defaultSpecs[spec.label] = spec.options[0].name;
+        }
+      });
+      const isTravel = product.category === "旅行";
+      const isHotel = isTravel && isHotelProduct(product.title);
+      if (isTravel && isHotel) {
+        defaultSpecs["成人"] = "1";
+        defaultSpecs["儿童"] = "0";
+      }
+      setSelectedSpecs(defaultSpecs);
+      setProductQuantity(1);
       markProductViewed();
       setPrevView(view);
       setView("detail");
@@ -823,6 +1022,11 @@ export default function MoonCartApp() {
       ? items.map((item) => ({ ...item }))
       : selectedProduct ? [{ ...selectedProduct, quantity: 1, finalPrice: selectedProduct.price }] : [];
     const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const channel = getChannelFromItems(orderItems);
+    // 旅行订单：从规格中提取出发日期
+    const travelStartDate = channel === "travel" && orderItems[0]?.selectedSpecs
+      ? (orderItems[0].selectedSpecs["出发日期"] || orderItems[0].selectedSpecs["入住日期"] || orderItems[0].selectedSpecs["取车日期"])
+      : undefined;
     setLastOrderAmount(orderAmount);
     setLastOrderItems(orderItems);
     setOrderPanelOpen(true);
@@ -840,9 +1044,13 @@ export default function MoonCartApp() {
         items: orderItems,
         stepIndex: 0,
         createdAt: new Date().toISOString(),
-        channel: getChannelFromItems(orderItems),
+        channel,
+        travelStartDate,
       },
     ]);
+    if (channel === "travel") {
+      completeOrder(orderAmount, orderItems);
+    }
   };
 
   const accelerate = (id?: string) => {
@@ -1507,7 +1715,7 @@ export default function MoonCartApp() {
                   <div className="flex-1">
                     <div className="font-semibold">{editingCartItem.title}</div>
                     <div className="mt-1 text-lg font-semibold text-price">
-                      {money(calculateSpecPrice(editingCartItem, editingSpecs))}
+                      {money(getTravelUnitPrice(editingCartItem, editingSpecs))}
                     </div>
                   </div>
                 </div>
@@ -1551,10 +1759,11 @@ export default function MoonCartApp() {
                   className="mt-6 w-full rounded-full bg-primary py-3.5 text-sm font-semibold text-white shadow-[0_4px_12px_rgba(255,80,0,0.2)] active:bg-primary/80"
                   onClick={() => {
                     if (editingCartItem) {
+                      const unitPrice = getTravelUnitPrice(editingCartItem, editingSpecs);
                       updateCartItemSpecs(
                         editingCartItem.id,
                         editingSpecs,
-                        calculateSpecPrice(editingCartItem, editingSpecs)
+                        unitPrice
                       );
                     }
                     setEditingCartItem(null);
@@ -1591,7 +1800,7 @@ export default function MoonCartApp() {
                   <div className="flex-1">
                     <div className="font-semibold">{quickAddProduct.title}</div>
                     <div className="mt-1 text-lg font-semibold text-price">
-                      {money(calculateSpecPrice(quickAddProduct, quickAddSpecs))}
+                      {money(getTravelUnitPrice(quickAddProduct, quickAddSpecs))}
                     </div>
                   </div>
                 </div>
@@ -1634,15 +1843,293 @@ export default function MoonCartApp() {
                 <button
                   className="mt-6 w-full rounded-full bg-primary py-3.5 text-sm font-semibold text-white shadow-[0_4px_12px_rgba(255,80,0,0.2)] active:bg-primary/80"
                   onClick={() => {
+                    if (quickAddProduct.category === "旅行") {
+                      const { valid, missingFields } = validateTravelSpecs(quickAddProduct, quickAddSpecs);
+                      if (!valid) {
+                        setSpecHint(`请选择${missingFields.join("、")}`);
+                        setTimeout(() => setSpecHint(""), 2500);
+                        return;
+                      }
+                    }
+                    const unitPrice = getTravelUnitPrice(quickAddProduct, quickAddSpecs);
                     addToCart(
                       quickAddProduct,
                       quickAddSpecs,
-                      calculateSpecPrice(quickAddProduct, quickAddSpecs)
+                      unitPrice
                     );
                     setQuickAddProduct(null);
                   }}
                 >
-                  已下单
+                  {quickAddProduct.category === "旅行" ? "立即预订" : "立即下单"}
+                </button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      )}
+      {couponAddProduct && (
+        <AnimatePresence>
+          {couponAddProduct && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-end justify-center bg-black/40"
+              onClick={() => setCouponAddProduct(null)}
+            >
+              <motion.div
+                initial={{ y: "100%" }}
+                animate={{ y: 0 }}
+                exit={{ y: "100%" }}
+                transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                className="w-full max-w-[460px] max-h-[80vh] rounded-t-[32px] bg-white p-5 pb-8 overflow-y-auto"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-black/10" />
+                <div className="flex items-center gap-3">
+                  <ProductVisual product={couponAddProduct} compact />
+                  <div className="flex-1">
+                    <div className="font-semibold">{couponAddProduct.title}</div>
+                    <div className="mt-1 text-lg font-semibold text-price">
+                      {money(getTravelUnitPrice(couponAddProduct, couponAddSpecs))}
+                    </div>
+                  </div>
+                </div>
+                {(couponAddProduct.category === "旅行") && (() => {
+                  const title = couponAddProduct.title;
+                  const isHotel = isHotelProduct(title);
+                  const isRental = isRentalProduct(title);
+                  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+                  return (
+                    <div className="mt-5">
+                      <div className="mb-3 font-semibold">选择规格</div>
+                      <div className="mt-3">
+                        <div className="mb-2 text-sm text-quiet">
+                          {isHotel ? "入住日期" : isRental ? "取车/还车日期" : "出发日期"}
+                        </div>
+                        <div className={`flex ${isHotel || isRental ? "gap-3" : ""}`}>
+                          <input
+                            type="date"
+                            value={couponAddSpecs[isHotel ? "入住日期" : isRental ? "取车日期" : "出发日期"] ?? ""}
+                            min={tomorrow}
+                            onChange={(e) =>
+                              setCouponAddSpecs((prev) => ({
+                                ...prev,
+                                [isHotel ? "入住日期" : isRental ? "取车日期" : "出发日期"]: e.target.value,
+                              }))
+                            }
+                            className="flex-1 rounded-2xl border-0 bg-black/[0.03] px-4 py-3 text-sm outline-none focus:bg-black/[0.05]"
+                          />
+                          {(isHotel || isRental) && (
+                            <>
+                              <span className="self-center text-quiet">—</span>
+                              <input
+                                type="date"
+                                value={couponAddSpecs[isHotel ? "退房日期" : "还车日期"] ?? ""}
+                                min={couponAddSpecs[isHotel ? "入住日期" : "取车日期"] ?? tomorrow}
+                                onChange={(e) =>
+                                  setCouponAddSpecs((prev) => ({
+                                    ...prev,
+                                    [isHotel ? "退房日期" : "还车日期"]: e.target.value,
+                                  }))
+                                }
+                                className="flex-1 rounded-2xl border-0 bg-black/[0.03] px-4 py-3 text-sm outline-none focus:bg-black/[0.05]"
+                              />
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      {isRental && (
+                        <div className="mt-3">
+                          <div className="mb-2 text-sm text-quiet">取车/还车时间</div>
+                          <div className="flex gap-3">
+                            <div className="flex-1">
+                              <div className="mb-1.5 text-xs text-quiet">取车时间</div>
+                              <input
+                                type="time"
+                                value={couponAddSpecs["取车时间"] ?? "10:00"}
+                                onChange={(e) =>
+                                  setCouponAddSpecs((prev) => ({
+                                    ...prev,
+                                    取车时间: e.target.value,
+                                  }))
+                                }
+                                className="w-full rounded-2xl border-0 bg-black/[0.03] px-4 py-3 text-sm outline-none focus:bg-black/[0.05]"
+                              />
+                            </div>
+                            <div className="flex-1">
+                              <div className="mb-1.5 text-xs text-quiet">还车时间</div>
+                              <input
+                                type="time"
+                                value={couponAddSpecs["还车时间"] ?? "10:00"}
+                                onChange={(e) =>
+                                  setCouponAddSpecs((prev) => ({
+                                    ...prev,
+                                    还车时间: e.target.value,
+                                  }))
+                                }
+                                className="w-full rounded-2xl border-0 bg-black/[0.03] px-4 py-3 text-sm outline-none focus:bg-black/[0.05]"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      {isHotel && (
+                        <div className="mt-3">
+                          <div className="mb-2 text-sm text-quiet">人数（每间房最多2成人+2儿童）</div>
+                          <div className="flex gap-3">
+                            <div className="flex-1">
+                              <div className="mb-1.5 text-xs text-quiet">成人</div>
+                              <div className="flex items-center gap-2 rounded-2xl bg-black/[0.03] px-3 py-2">
+                                <button
+                                  className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-lg shadow-soft active:scale-90"
+                                  onClick={() => setCouponAddSpecs((prev) => ({ ...prev, 成人: String(Math.max(1, Number(prev.成人 ?? "1") - 1)) }))}
+                                >
+                                  <Minus size={14} />
+                                </button>
+                                <span className="flex-1 text-center text-sm font-semibold">
+                                  {couponAddSpecs.成人 ?? "1"}
+                                </span>
+                                <button
+                                  className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-lg shadow-soft active:scale-90"
+                                  onClick={() => setCouponAddSpecs((prev) => ({ ...prev, 成人: String(Math.min(2, Number(prev.成人 ?? "1") + 1)) }))}
+                                >
+                                  <Plus size={14} />
+                                </button>
+                              </div>
+                            </div>
+                            <div className="flex-1">
+                              <div className="mb-1.5 text-xs text-quiet">儿童</div>
+                              <div className="flex items-center gap-2 rounded-2xl bg-black/[0.03] px-3 py-2">
+                                <button
+                                  className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-lg shadow-soft active:scale-90"
+                                  onClick={() => setCouponAddSpecs((prev) => ({ ...prev, 儿童: String(Math.max(0, Number(prev.儿童 ?? "0") - 1)) }))}
+                                >
+                                  <Minus size={14} />
+                                </button>
+                                <span className="flex-1 text-center text-sm font-semibold">
+                                  {couponAddSpecs.儿童 ?? "0"}
+                                </span>
+                                <button
+                                  className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-lg shadow-soft active:scale-90"
+                                  onClick={() => setCouponAddSpecs((prev) => ({ ...prev, 儿童: String(Math.min(2, Number(prev.儿童 ?? "0") + 1)) }))}
+                                >
+                                  <Plus size={14} />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+                {couponAddProduct.specs && couponAddProduct.specs.length > 0 && (
+                  <div className="mt-5">
+                    <div className="mb-3 font-semibold">选择规格</div>
+                    {couponAddProduct.specs.map((spec) => (
+                      <div key={spec.label} className="mt-3">
+                        <div className="mb-2 text-sm text-quiet">{spec.label}</div>
+                        <div className="flex flex-wrap gap-2">
+                          {spec.options.map((option) => {
+                            const isSelected = couponAddSpecs[spec.label] === option.name;
+                            return (
+                              <button
+                                key={option.name}
+                                onClick={() =>
+                                  setCouponAddSpecs((prev) => ({
+                                    ...prev,
+                                    [spec.label]: option.name,
+                                  }))
+                                }
+                                className={`flex items-center gap-1 rounded-full px-4 py-2 text-sm transition-all ${
+                                  isSelected
+                                    ? "bg-primary text-white"
+                                    : "bg-black/[0.03] text-ink active:bg-black/5"
+                                }`}
+                              >
+                                <span>{option.name}</span>
+                                {option.priceDelta !== 0 && (
+                                  <span className={`text-xs ${isSelected ? "text-white/80" : "text-quiet"}`}>
+                                    {option.priceDelta > 0 ? `+${option.priceDelta}` : option.priceDelta}
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {/* 数量选择 */}
+                <div className="mt-4">
+                  <div className="mb-2 text-sm text-quiet">
+                    {(() => {
+                      if (couponAddProduct.category !== "旅行") return "数量";
+                      const title = couponAddProduct.title;
+                      if (isHotelProduct(title)) return "房间数";
+                      if (isTicketProduct(title)) return "票数";
+                      if (isRentalProduct(title)) return "人数";
+                      return "人数";
+                    })()}
+                  </div>
+                  <div className="flex items-center gap-3 w-32">
+                    <button
+                      className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-lg shadow-soft active:scale-90"
+                      onClick={() => setCouponAddQuantity(Math.max(1, couponAddQuantity - 1))}
+                    >
+                      <Minus size={14} />
+                    </button>
+                    <input
+                      type="number"
+                      min={1}
+                      max={99}
+                      value={couponAddQuantity}
+                      onChange={(e) => setCouponAddQuantity(Math.max(1, Math.min(99, Number(e.target.value) || 1)))}
+                      className="w-12 text-center text-sm font-semibold outline-none"
+                    />
+                    <button
+                      className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-lg shadow-soft active:scale-90"
+                      onClick={() => setCouponAddQuantity(Math.min(99, couponAddQuantity + 1))}
+                    >
+                      <Plus size={14} />
+                    </button>
+                  </div>
+                </div>
+                <button
+                  className="mt-6 w-full rounded-full bg-primary py-3.5 text-sm font-semibold text-white shadow-[0_4px_12px_rgba(255,80,0,0.2)] active:bg-primary/80"
+                  onClick={() => {
+                    if (couponAddProduct.category === "旅行") {
+                      const { valid, missingFields } = validateTravelSpecs(couponAddProduct, couponAddSpecs);
+                      if (!valid) {
+                        setSpecHint(`请选择${missingFields.join("、")}`);
+                        setTimeout(() => setSpecHint(""), 2500);
+                        return;
+                      }
+                    }
+                    const unitPrice = getTravelUnitPrice(couponAddProduct, couponAddSpecs);
+                    addToCart(
+                      couponAddProduct,
+                      couponAddSpecs,
+                      unitPrice,
+                      couponAddQuantity
+                    );
+                    const newSelected = new Set(selectedCartItems);
+                    newSelected.add(couponAddProduct.id);
+                    setSelectedCartItems(newSelected);
+                    const newCurrentTotal = currentTotal + unitPrice * couponAddQuantity;
+                    const newCouponAmount = couponTarget - newCurrentTotal;
+                    if (newCouponAmount <= 0) {
+                      setFlashMessage(`已添加 ${couponAddProduct.title}，凑单完成！可以结算啦`);
+                    } else {
+                      setFlashMessage(`已添加 ${couponAddProduct.title}，还差 ${money(newCouponAmount)} 可享9折`);
+                    }
+                    setTimeout(() => setFlashMessage(""), 2000);
+                    setCouponAddProduct(null);
+                  }}
+                >
+                  加入购物车
                 </button>
               </motion.div>
             </motion.div>
@@ -1685,7 +2172,7 @@ export default function MoonCartApp() {
                     onClick={() => addCouponProduct(product)}
                     className="shrink-0 rounded-full bg-primary px-4 py-1.5 text-xs font-medium text-white"
                   >
-                    加购
+                    {(product.category === "旅行" || (product.specs && product.specs.length > 0)) ? "去选规格" : "加购"}
                   </button>
                 </div>
               ))}
@@ -1711,7 +2198,7 @@ export default function MoonCartApp() {
                     <img
                       src="/logo.png"
                       alt="睡前逛逛"
-                      className="h-11 w-11 shrink-0 rounded-2xl bg-white/90 p-1.5 object-contain shadow-soft"
+                      className="h-9 w-9 shrink-0 rounded-full bg-white/90 p-1 object-contain shadow-soft"
                     />
                     <div>
                       <div className="text-sm font-semibold">睡前逛逛</div>
@@ -1929,10 +2416,10 @@ export default function MoonCartApp() {
                     : [
                         { icon: "✈️", label: "机票", action: "flight" },
                         { icon: "🏨", label: "酒店", category: "旅行", keyword: "酒店|住宿|房|民宿|客栈" },
-                        { icon: "🎫", label: "门票", category: "旅行", keyword: "门票|票|园|故宫|迪士尼|影城|长隆|野生动物|冰雪" },
-                        { icon: "🚌", label: "跟团游", category: "旅行", keyword: "跟团|一日游|游|朝圣|深度" },
-                        { icon: "🚗", label: "租车", category: "旅行", keyword: "租车|自驾|车" },
-                        { icon: "🏖️", label: "度假", category: "旅行", keyword: "度假|海岛|海滩|海景|三亚|马尔代夫|亚特兰蒂斯|巴厘" },
+                        { icon: "🎫", label: "门票", category: "旅行", keyword: "门票|通票|套票|船票|游船|故宫|迪士尼|影城|长隆|野生动物|冰雪|动物园|乐园" },
+                        { icon: "🚌", label: "跟团游", category: "旅行", keyword: "跟团|一日游|朝圣|深度游|周边游|亲子游" },
+                        { icon: "🚗", label: "租车", category: "旅行", keyword: "租车|自驾" },
+                        { icon: "🏖️", label: "度假", category: "旅行", keyword: "度假|马尔代夫|亚特兰蒂斯|巴厘岛度假" },
                         { icon: "🏔️", label: "周边游", category: "旅行", keyword: "周边|西湖|长城|慕田峪|古镇|苏州|南京|园林|中山" },
                         { icon: "🎢", label: "游乐园", category: "旅行", keyword: "迪士尼|影城|游乐园|乐园|长隆|野生动物|欢乐谷" },
                         { icon: "⛺", label: "露营", category: "旅行", keyword: "露营|帐篷|营地|草原" },
@@ -1945,6 +2432,7 @@ export default function MoonCartApp() {
                       onClick={() => {
                         const i = item as { action?: string; category?: string; keyword?: string; label?: string; subCategory?: string };
                         if (i.action === "flight") {
+                          setPrevView(view);
                           setView("flight");
                         } else if (homeTab === "takeout") {
                           openTakeoutShops(i.subCategory);
@@ -2119,26 +2607,28 @@ export default function MoonCartApp() {
                           )}
                         </div>
                       </button>
-                      <button
-                        className="absolute bottom-2 right-3 z-10 h-8 w-8 rounded-full bg-primary shadow-md flex items-center justify-center active:scale-90 transition-transform"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (product.specs && product.specs.length > 0) {
-                            setQuickAddProduct(product);
-                            const defaultSpecs: Record<string, string> = {};
-                            product.specs?.forEach((spec) => {
-                              if (spec.options.length > 0) {
-                                defaultSpecs[spec.label] = spec.options[0].name;
-                              }
-                            });
-                            setQuickAddSpecs(defaultSpecs);
-                          } else {
-                            addToCart(product);
-                          }
-                        }}
-                      >
-                        <ShoppingCart size={14} className="text-white" />
-                      </button>
+                      {homeTab !== "travel" && (
+                        <button
+                          className="absolute bottom-2 right-3 z-10 h-8 w-8 rounded-full bg-primary shadow-md flex items-center justify-center active:scale-90 transition-transform"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (product.specs && product.specs.length > 0) {
+                              setQuickAddProduct(product);
+                              const defaultSpecs: Record<string, string> = {};
+                              product.specs?.forEach((spec) => {
+                                if (spec.options.length > 0) {
+                                  defaultSpecs[spec.label] = spec.options[0].name;
+                                }
+                              });
+                              setQuickAddSpecs(defaultSpecs);
+                            } else {
+                              addToCart(product);
+                            }
+                          }}
+                        >
+                          <ShoppingCart size={14} className="text-white" />
+                        </button>
+                      )}
                     </div>
                   ));
                 })()}
@@ -2401,20 +2891,20 @@ export default function MoonCartApp() {
               <button onClick={() => openTakeoutShops("中式正餐")} className={`whitespace-nowrap rounded-full px-4 py-2 text-sm ${takeoutSubCategory === "中式正餐" ? "bg-primary text-white" : "bg-white text-ink"}`}>中式正餐</button>
               <button onClick={() => openTakeoutShops("西式快餐")} className={`whitespace-nowrap rounded-full px-4 py-2 text-sm ${takeoutSubCategory === "西式快餐" ? "bg-primary text-white" : "bg-white text-ink"}`}>西式快餐</button>
             </div>
-            <div className="mt-3 space-y-3 pb-4">
+            <div className="mt-3 grid grid-cols-2 gap-3 pb-4">
               {getTakeoutShops(takeoutSubCategory).map((shop) => (
                 <button
                   key={shop.name}
                   onClick={() => openTakeoutShop(shop.name)}
-                  className="w-full rounded-[20px] bg-white p-4 shadow-soft active:scale-[0.98] transition-transform"
+                  className="w-full rounded-[20px] bg-white p-3 shadow-soft active:scale-[0.98] transition-transform text-left"
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-primary/10 text-3xl">
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="flex h-20 w-20 items-center justify-center rounded-xl bg-primary/10 text-4xl">
                       {shop.image}
                     </div>
-                    <div className="flex-1 text-left">
-                      <div className="font-semibold">{shop.name}</div>
-                      <div className="mt-1 flex items-center gap-3 text-xs text-quiet">
+                    <div className="w-full">
+                      <div className="font-semibold text-sm text-center truncate">{shop.name}</div>
+                      <div className="mt-1 flex items-center justify-center gap-2 text-xs text-quiet">
                         <span className="flex items-center gap-0.5">
                           {[1, 2, 3, 4, 5].map((i) => {
                             const full = shop.rating >= i;
@@ -2433,13 +2923,13 @@ export default function MoonCartApp() {
                               </span>
                             );
                           })}
-                          <span className="ml-0.5 text-yellow-600 font-medium">{shop.rating}</span>
                         </span>
-                        <span>月售{shop.sales}</span>
-                        <span>{shop.deliveryTime}</span>
+                        <span className="text-yellow-600 font-medium">{shop.rating}</span>
+                      </div>
+                      <div className="mt-1 text-center text-xs text-quiet">
+                        月售{shop.sales} · {shop.deliveryTime}
                       </div>
                     </div>
-                    <ChevronRight size={20} className="text-quiet" />
                   </div>
                 </button>
               ))}
@@ -2574,8 +3064,27 @@ export default function MoonCartApp() {
                     {Math.floor(selectedProduct.id * 17 + 98)} 条评价
                   </p>
                 </div>
-                <div className="shrink-0 text-2xl font-semibold text-price">
-                  {money(calculateSpecPrice(selectedProduct, selectedSpecs))}
+                <div className="shrink-0 text-right">
+                  <div className="text-2xl font-semibold text-price">
+                    {money(getTravelUnitPrice(selectedProduct, selectedSpecs))}
+                  </div>
+                  {(() => {
+                    const title = selectedProduct.title;
+                    if (isRentalProduct(title)) {
+                      const info = calculateRentalInfo(calculateSpecPrice(selectedProduct, selectedSpecs), selectedSpecs);
+                      return (
+                        <div className="mt-0.5 text-xs text-quiet">
+                          {info.totalDays > 0 && <span>共{info.totalDays}天/人</span>}
+                          {info.overtimeFee > 0 && <span className="ml-1">· 超时费{money(Math.round(info.overtimeFee))}/人</span>}
+                          {info.extraDays > 0 && <span className="ml-1">· 超时加1天</span>}
+                        </div>
+                      );
+                    }
+                    if (isHotelProduct(title) && getTravelNights(selectedProduct, selectedSpecs) > 1) {
+                      return <div className="mt-0.5 text-xs text-quiet">共{getTravelNights(selectedProduct, selectedSpecs)}晚/间</div>;
+                    }
+                    return null;
+                  })()}
                 </div>
               </div>
               <p className="mt-5 leading-7 text-quiet">
@@ -2595,8 +3104,8 @@ export default function MoonCartApp() {
 
               {selectedProduct.category === "旅行" && (() => {
                 const title = selectedProduct.title;
-                const isHotel = /酒店|民宿|住宿|客栈|房|帐篷|营地|露营/.test(title);
-                const isRental = /租车|自驾/.test(title);
+                const isHotel = isHotelProduct(title);
+                const isRental = isRentalProduct(title);
                 const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
                 return (
                 <div className="mt-5">
@@ -2604,7 +3113,7 @@ export default function MoonCartApp() {
                   {/* 日期选择 */}
                   <div className="mt-3">
                     <div className="mb-2 text-sm text-quiet">
-                      {isHotel ? "入住日期" : isRental ? "取车日期" : "出发日期"}
+                      {isHotel ? "入住日期" : isRental ? "取车/还车日期" : "出发日期"}
                     </div>
                     <div className={`flex ${isHotel || isRental ? "gap-3" : ""}`}>
                       <input
@@ -2638,29 +3147,49 @@ export default function MoonCartApp() {
                       )}
                     </div>
                   </div>
-                  {/* 人数/房间选择 */}
-                  <div className="mt-3">
-                    <div className="mb-2 text-sm text-quiet">
-                      {isHotel ? "房间数" : "人数"}
-                    </div>
-                    {isHotel ? (
-                      <div className="flex flex-wrap gap-2">
-                        {["1间", "2间", "3间", "4间", "5间及以上"].map((opt) => {
-                          const isSelected = selectedSpecs["房间数"] === opt;
-                          return (
-                            <button
-                              key={opt}
-                              onClick={() => setSelectedSpecs((prev) => ({ ...prev, 房间数: opt }))}
-                              className={`rounded-full px-4 py-2 text-sm transition-all ${
-                                isSelected ? "bg-primary text-white" : "bg-black/[0.03] text-ink active:bg-black/5"
-                              }`}
-                            >
-                              {opt}
-                            </button>
-                          );
-                        })}
+                  {/* 租车时间选择 */}
+                  {isRental && (
+                    <div className="mt-3">
+                      <div className="mb-2 text-sm text-quiet">取车/还车时间</div>
+                      <div className="flex gap-3">
+                        <div className="flex-1">
+                          <div className="mb-1.5 text-xs text-quiet">取车时间</div>
+                          <input
+                            type="time"
+                            value={selectedSpecs["取车时间"] ?? "10:00"}
+                            onChange={(e) =>
+                              setSelectedSpecs((prev) => ({
+                                ...prev,
+                                取车时间: e.target.value,
+                              }))
+                            }
+                            className="w-full rounded-2xl border-0 bg-black/[0.03] px-4 py-3 text-sm outline-none focus:bg-black/[0.05]"
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <div className="mb-1.5 text-xs text-quiet">还车时间</div>
+                          <input
+                            type="time"
+                            value={selectedSpecs["还车时间"] ?? "10:00"}
+                            onChange={(e) =>
+                              setSelectedSpecs((prev) => ({
+                                ...prev,
+                                还车时间: e.target.value,
+                              }))
+                            }
+                            className="w-full rounded-2xl border-0 bg-black/[0.03] px-4 py-3 text-sm outline-none focus:bg-black/[0.05]"
+                          />
+                        </div>
                       </div>
-                    ) : (
+                      <div className="mt-2 text-xs text-quiet">
+                        可提前30分钟取车 · 还车超时1小时后收超时费，超4小时按1天计费
+                      </div>
+                    </div>
+                  )}
+                  {/* 酒店人数选择 */}
+                  {isHotel && (
+                    <div className="mt-3">
+                      <div className="mb-2 text-sm text-quiet">人数（每间房最多2成人+2儿童）</div>
                       <div className="flex gap-3">
                         <div className="flex-1">
                           <div className="mb-1.5 text-xs text-quiet">成人</div>
@@ -2676,7 +3205,7 @@ export default function MoonCartApp() {
                             </span>
                             <button
                               className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-lg shadow-soft active:scale-90"
-                              onClick={() => setSelectedSpecs((prev) => ({ ...prev, 成人: String(Number(prev.成人 ?? "1") + 1) }))}
+                              onClick={() => setSelectedSpecs((prev) => ({ ...prev, 成人: String(Math.min(2, Number(prev.成人 ?? "1") + 1)) }))}
                             >
                               <Plus size={14} />
                             </button>
@@ -2696,15 +3225,15 @@ export default function MoonCartApp() {
                             </span>
                             <button
                               className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-lg shadow-soft active:scale-90"
-                              onClick={() => setSelectedSpecs((prev) => ({ ...prev, 儿童: String(Number(prev.儿童 ?? "0") + 1) }))}
+                              onClick={() => setSelectedSpecs((prev) => ({ ...prev, 儿童: String(Math.min(2, Number(prev.儿童 ?? "0") + 1)) }))}
                             >
                               <Plus size={14} />
                             </button>
                           </div>
                         </div>
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
                 );
               })()}
@@ -2749,7 +3278,47 @@ export default function MoonCartApp() {
                   ))}
                 </div>
               )}
+
+              {/* 数量选择 */}
+              <div className="mt-4">
+                <div className="mb-2 text-sm text-quiet">
+                  {(() => {
+                    if (selectedProduct.category !== "旅行") return "数量";
+                    const title = selectedProduct.title;
+                    if (isHotelProduct(title)) return "房间数";
+                    if (isTicketProduct(title)) return "票数";
+                    if (isRentalProduct(title)) return "人数";
+                    return "人数";
+                  })()}
+                </div>
+                <div className="flex items-center gap-3 w-32">
+                  <button
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-lg shadow-soft active:scale-90"
+                    onClick={() => setProductQuantity((q) => Math.max(1, q - 1))}
+                  >
+                    <Minus size={16} />
+                  </button>
+                  <input
+                    type="number"
+                    min={1}
+                    value={productQuantity}
+                    onChange={(e) => setProductQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                    className="flex-1 w-12 rounded-2xl border-0 bg-black/[0.03] px-2 py-2 text-center text-sm font-semibold outline-none"
+                  />
+                  <button
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-lg shadow-soft active:scale-90"
+                    onClick={() => setProductQuantity((q) => q + 1)}
+                  >
+                    <Plus size={16} />
+                  </button>
+                </div>
+              </div>
             </section>
+            {specHint && (
+              <div className="fixed top-20 left-1/2 z-50 -translate-x-1/2 rounded-full bg-black/80 px-5 py-2.5 text-sm text-white shadow-lg" onClick={() => setSpecHint("")}>
+                {specHint}
+              </div>
+            )}
             <div className="fixed inset-x-0 bottom-0 mx-auto flex max-w-[460px] gap-3 bg-paper/95 p-4 backdrop-blur">
               <button
                 className={`relative rounded-full bg-white px-4 py-4 font-semibold shadow-soft transition-transform ${
@@ -2777,19 +3346,39 @@ export default function MoonCartApp() {
               </button>
               <button
                 className="flex-1 rounded-full bg-white px-5 py-4 font-semibold shadow-soft"
-                onClick={() => addToCart(selectedProduct, selectedSpecs, calculateSpecPrice(selectedProduct, selectedSpecs))}
+                onClick={() => {
+                  if (selectedProduct.category === "旅行") {
+                    const { valid, missingFields } = validateTravelSpecs(selectedProduct, selectedSpecs);
+                    if (!valid) {
+                      setSpecHint(`请选择${missingFields.join("、")}`);
+                      setTimeout(() => setSpecHint(""), 2500);
+                      return;
+                    }
+                  }
+                  const unitPrice = getTravelUnitPrice(selectedProduct, selectedSpecs);
+                  addToCart(selectedProduct, selectedSpecs, unitPrice, productQuantity);
+                }}
               >
-                已下单
+                加入购物车
               </button>
               <button
                 className="flex-1 rounded-full bg-primary px-5 py-4 font-semibold text-white shadow-soft"
-                onClick={() =>
-                  startOrder(calculateSpecPrice(selectedProduct, selectedSpecs), [
-                    { ...selectedProduct, quantity: 1, selectedSpecs, price: calculateSpecPrice(selectedProduct, selectedSpecs), finalPrice: calculateSpecPrice(selectedProduct, selectedSpecs) },
-                  ])
-                }
+                onClick={() => {
+                  if (selectedProduct.category === "旅行") {
+                    const { valid, missingFields } = validateTravelSpecs(selectedProduct, selectedSpecs);
+                    if (!valid) {
+                      setSpecHint(`请选择${missingFields.join("、")}`);
+                      setTimeout(() => setSpecHint(""), 2500);
+                      return;
+                    }
+                  }
+                  const unitPrice = getTravelUnitPrice(selectedProduct, selectedSpecs);
+                  startOrder(unitPrice * productQuantity, [
+                    { ...selectedProduct, quantity: productQuantity, selectedSpecs, price: unitPrice, finalPrice: unitPrice },
+                  ]);
+                }}
               >
-                立即下单
+                {selectedProduct.category === "旅行" ? "立即预订" : "立即下单"}
               </button>
             </div>
           </Screen>
@@ -2810,8 +3399,46 @@ export default function MoonCartApp() {
               <EmptyCart onShop={() => openCategory(undefined)} />
             ) : (
               <>
-                <div className="space-y-3 pt-2">
-                  {cart.map((item) => (
+                <div className="flex gap-2 mb-3 sticky top-0 z-10 bg-paper pt-1 pb-2">
+                  {[
+                    { key: "delivery", label: "快递" },
+                    { key: "takeout", label: "外卖" },
+                    { key: "travel", label: "旅游" },
+                  ].map((tab) => {
+                    const count = cart.filter((item) =>
+                      tab.key === "takeout"
+                        ? item.category === "外卖"
+                        : tab.key === "travel"
+                        ? item.category === "旅行"
+                        : item.category !== "外卖" && item.category !== "旅行"
+                    ).length;
+                    return (
+                      <button
+                        key={tab.key}
+                        onClick={() => setCartTab(tab.key as "delivery" | "takeout" | "travel")}
+                        className={`flex-1 py-2 rounded-full text-sm font-medium transition-all ${
+                          cartTab === tab.key
+                            ? "bg-primary text-white shadow-soft"
+                            : "bg-black/[0.04] text-quiet"
+                        }`}
+                      >
+                        {tab.label} {count > 0 && `(${count})`}
+                      </button>
+                    );
+                  })}
+                </div>
+                {cartTabItems.length === 0 ? (
+                  <div className="py-16 text-center">
+                    <div className="text-4xl mb-3">
+                      {cartTab === "takeout" ? "🍔" : cartTab === "travel" ? "✈️" : "📦"}
+                    </div>
+                    <p className="text-sm text-quiet">
+                      {cartTab === "takeout" ? "暂无外卖商品" : cartTab === "travel" ? "暂无旅游商品" : "暂无快递商品"}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {cartTabItems.map((item) => (
                     <div
                       key={item.id}
                       className="flex gap-3 rounded-2xl bg-white p-3 items-start shadow-soft"
@@ -2898,7 +3525,8 @@ export default function MoonCartApp() {
                     </div>
                   ))}
                 </div>
-                {selectedCount > 0 && cartSelectedCategory && (
+                )}
+                {cartTabSelectedItems.length > 0 && (
                   <div className="mt-4 rounded-2xl bg-primary/10 px-4 py-3.5 flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
                       <span className="text-xl">🎫</span>
@@ -2927,11 +3555,20 @@ export default function MoonCartApp() {
                   <div className="space-y-3">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-quiet">已选商品</span>
-                      <span className="font-medium">{selectedCount} 件</span>
+                      <span className="font-medium">
+                        {cartTabSelectedItems.reduce((sum, item) => sum + item.quantity, 0)} 件
+                      </span>
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-quiet">商品总价</span>
-                      <span className="font-medium">{money(selectedTotal)}</span>
+                      <span className="font-medium">
+                        {money(
+                          cartTabSelectedItems.reduce(
+                            (sum, item) => sum + (item.finalPrice ?? item.price) * item.quantity,
+                            0
+                          )
+                        )}
+                      </span>
                     </div>
                     {claimedCouponAmount > 0 && (
                       <div className="flex items-center justify-between text-sm">
@@ -2943,7 +3580,17 @@ export default function MoonCartApp() {
                   <div className="mt-4 pt-4 border-t border-black/5 flex items-end justify-between">
                     <span className="text-quiet text-sm">合计</span>
                     <span className="text-2xl font-bold text-price">
-                      {money(finalSelectedTotal)}
+                      {money(
+                        canUseCoupon
+                          ? cartTabSelectedItems.reduce(
+                              (sum, item) => sum + (item.finalPrice ?? item.price) * item.quantity,
+                              0
+                            ) - claimedCouponAmount
+                          : cartTabSelectedItems.reduce(
+                              (sum, item) => sum + (item.finalPrice ?? item.price) * item.quantity,
+                              0
+                            )
+                      )}
                     </span>
                   </div>
                 </section>
@@ -2955,11 +3602,11 @@ export default function MoonCartApp() {
                     <div
                       className="w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all"
                       style={{
-                        borderColor: isAllSelected ? '#FF5000' : '#636366',
-                        background: isAllSelected ? '#FF5000' : 'transparent',
+                        borderColor: isTabAllSelected ? '#FF5000' : '#636366',
+                        background: isTabAllSelected ? '#FF5000' : 'transparent',
                       }}
                     >
-                      {isAllSelected && (
+                      {isTabAllSelected && (
                         <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3.5}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                         </svg>
@@ -2967,11 +3614,13 @@ export default function MoonCartApp() {
                     </div>
                     <span className="text-sm text-quiet">全选</span>
                   </button>
-                  {selectedCount > 0 && (
+                  {cartTabSelectedItems.length > 0 && (
                     <button
                       onClick={() => {
-                        selectedCartItems.forEach((id) => removeFromCart(id));
-                        setSelectedCartItems(new Set());
+                        cartTabSelectedItems.forEach((item) => removeFromCart(item.id));
+                        const newSelected = new Set(selectedCartItems);
+                        cartTabSelectedItems.forEach((item) => newSelected.delete(item.id));
+                        setSelectedCartItems(newSelected);
                         setClaimedCouponAmount(0);
                         setFlashMessage("已删除选中商品");
                         setTimeout(() => setFlashMessage(""), 2000);
@@ -2983,22 +3632,12 @@ export default function MoonCartApp() {
                     </button>
                   )}
                   <div className="flex-1" />
-                  {selectedCount === 0 ? (
+                  {cartTabSelectedItems.length === 0 ? (
                     <button
                       className="rounded-full py-2.5 px-5 font-semibold text-white text-sm opacity-40 bg-primary"
                       disabled
                     >
                       请选择
-                    </button>
-                  ) : mixedCategories ? (
-                    <button
-                      className="rounded-full py-2.5 px-5 font-semibold text-white text-sm bg-coral"
-                      onClick={() => {
-                        setFlashMessage("只能选择同一类商品结算哦");
-                        setTimeout(() => setFlashMessage(""), 2000);
-                      }}
-                    >
-                      同类结算
                     </button>
                   ) : (
                     <div className="flex items-center gap-2">
@@ -3023,19 +3662,19 @@ export default function MoonCartApp() {
                         className="rounded-full py-2.5 px-5 font-bold text-white text-sm bg-primary shadow-soft shrink-0"
                         onClick={() => {
                           const total = canCheckout
-                            ? (cartSelectedCategory === "takeout"
+                            ? (cartTab === "takeout"
                                 ? takeoutTotal
-                                : cartSelectedCategory === "travel"
+                                : cartTab === "travel"
                                 ? travelTotal
-                                : selectedTotal) - claimedCouponAmount
-                            : cartSelectedCategory === "takeout"
+                                : deliveryTotal) - claimedCouponAmount
+                            : cartTab === "takeout"
                             ? takeoutTotal
-                            : cartSelectedCategory === "travel"
+                            : cartTab === "travel"
                             ? travelTotal
-                            : selectedTotal;
-                          const items = cartSelectedCategory === "takeout"
+                            : deliveryTotal;
+                          const items = cartTab === "takeout"
                             ? takeoutItems
-                            : cartSelectedCategory === "travel"
+                            : cartTab === "travel"
                             ? travelItems
                             : deliveryItems;
                           startOrder(total, items);
@@ -3352,17 +3991,17 @@ export default function MoonCartApp() {
                 )}
               </div>
               {earnedBadges.length > 0 ? (
-                <div className="flex flex-wrap justify-between gap-y-3">
+                <div className="grid grid-cols-5 gap-x-1 gap-y-3">
                   {(showAllBadges ? earnedBadges : earnedBadges.slice(0, 10)).map((badge) => (
                     <div
                       key={badge.id}
-                      className="flex w-[18%] flex-col items-center"
+                      className="flex flex-col items-center"
                       title={badge.description}
                     >
                       <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-xl">
                         {badge.icon}
                       </div>
-                      <span className="mt-1 w-full truncate text-center text-[10px] text-text">
+                      <span className="mt-1 w-full text-center text-[10px] text-text">
                         {badge.name}
                       </span>
                     </div>
@@ -3423,54 +4062,108 @@ export default function MoonCartApp() {
           <Screen key="orders">
             <Header title="我的逛逛" onBack={() => setView("mine")} />
             <section className="mt-4">
-              {activeDeliveries.length > 0 && (
-                <div className="mb-4 rounded-[20px] bg-white p-4 shadow-[0_6px_20px_rgba(0,0,0,0.06)]">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm font-semibold text-primary">
-                      🚀 配送中 ({activeDeliveries.length})
-                    </span>
-                    <button
-                      className="text-xs text-quiet"
-                      onClick={() => setView("delivery")}
-                    >
-                      查看详情 ›
-                    </button>
-                  </div>
-                  <div className="hide-scrollbar flex gap-3 overflow-x-auto">
-                    {activeDeliveries.map((order, index) => {
-                      const steps = getDeliverySteps(order.channel);
-                      return (
+              {(() => {
+                const unviewedTravelOrders = activeDeliveries.filter(order => 
+                  order.channel === "travel" && !viewedTravelOrders.has(order.id)
+                );
+                const nonTravelOrders = activeDeliveries.filter(order => 
+                  order.channel !== "travel"
+                );
+                const shouldShowBanner = unviewedTravelOrders.length > 0 || nonTravelOrders.length > 0;
+                if (!shouldShowBanner) return null;
+                return (
+                  <div className="mb-4 rounded-[20px] bg-white p-4 shadow-[0_6px_20px_rgba(0,0,0,0.06)]">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-sm font-semibold text-primary">
+                        🚀 {unviewedTravelOrders.length > 0 && nonTravelOrders.length === 0 ? "待出行" : "配送中"} ({activeDeliveries.length})
+                      </span>
                       <button
-                        key={order.id}
-                        className="min-w-[200px] flex-1 rounded-[14px] bg-black/[0.03] p-3 text-left"
-                        onClick={() => setView("delivery")}
+                        className="text-xs text-quiet"
+                        onClick={() => {
+                          activeDeliveries.forEach(order => {
+                            if (order.channel === "travel") {
+                              setViewedTravelOrders(prev => new Set([...Array.from(prev), order.id]));
+                            }
+                          });
+                          setView("delivery");
+                        }}
                       >
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-quiet">
-                            订单 {index + 1}
-                          </span>
-                          <span className="text-xs font-medium text-primary">
-                            {Math.round((order.stepIndex + 1) / steps.length * 100)}%
-                          </span>
-                        </div>
-                        <div className="mt-2 text-sm font-medium truncate">
-                          {order.items[0]?.emoji} {order.items[0]?.title}
-                        </div>
-                        <div className="mt-2 h-1 rounded-full bg-black/5 overflow-hidden">
-                          <div
-                            className="h-full rounded-full bg-primary transition-all"
-                            style={{ width: `${((order.stepIndex + 1) / steps.length) * 100}%` }}
-                          />
-                        </div>
-                        <div className="mt-2 text-xs text-quiet">
-                          {steps[order.stepIndex]}
-                        </div>
+                        查看详情 ›
                       </button>
-                      );
-                    })}
+                    </div>
+                    <div className="hide-scrollbar flex gap-3 overflow-x-auto">
+                      {activeDeliveries.map((order, index) => {
+                        const steps = getDeliverySteps(order.channel);
+                        const isTravel = order.channel === "travel";
+                        const isViewed = isTravel && viewedTravelOrders.has(order.id);
+                        let progressPercent = 0;
+                        let statusLabel = "";
+                        if (isTravel && order.travelStartDate) {
+                          const countdown = calculateTravelCountdown(
+                            order.travelStartDate,
+                            order.createdAt,
+                            order.items[0]?.selectedSpecs
+                              ? Math.round(
+                                  ((parseLocalDate(
+                                    order.items[0].selectedSpecs["退房日期"] ||
+                                    order.items[0].selectedSpecs["还车日期"] ||
+                                    order.travelStartDate
+                                  )?.getTime() || 0) -
+                                    (parseLocalDate(order.travelStartDate)?.getTime() || 0)) /
+                                    86400000
+                                )
+                              : 1
+                          );
+                          progressPercent = countdown.progress;
+                          statusLabel = countdown.displayText;
+                        } else {
+                          progressPercent = ((order.stepIndex + 1) / steps.length) * 100;
+                          statusLabel = steps[order.stepIndex];
+                        }
+                        if (isTravel && isViewed) {
+                          return null;
+                        }
+                        return (
+                        <button
+                          key={order.id}
+                          className="min-w-[200px] flex-1 rounded-[14px] bg-black/[0.03] p-3 text-left"
+                          onClick={() => {
+                            if (isTravel) {
+                              setViewedTravelOrders(prev => new Set([...Array.from(prev), order.id]));
+                            }
+                            setView("delivery");
+                          }}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-quiet">
+                              订单 {index + 1}
+                            </span>
+                            <span className="text-xs font-medium text-primary">
+                              {Math.round(progressPercent)}%
+                            </span>
+                          </div>
+                          <div className="mt-2 text-sm font-medium truncate">
+                            {order.items[0]?.emoji} {order.items[0]?.title}
+                          </div>
+                          <div className="mt-2 h-1 rounded-full bg-black/5 overflow-hidden">
+                            <div
+                              className="h-full rounded-full bg-primary transition-all"
+                              style={{ width: `${progressPercent}%` }}
+                            />
+                          </div>
+                          <div className="mt-2 text-xs text-quiet">
+                            {statusLabel}
+                            {isTravel && !isViewed && (
+                              <span className="ml-1 text-primary">· 点击查看详情</span>
+                            )}
+                          </div>
+                        </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
               <div className="flex items-center gap-2 rounded-full bg-white px-4 py-3 shadow-soft mb-4">
                 <Search size={18} className="text-quiet shrink-0" />
                 <input
@@ -3513,7 +4206,7 @@ export default function MoonCartApp() {
                 {[
                   { label: "全部状态", value: "all" },
                   { label: "待付款", value: "pending" },
-                  { label: "配送中", value: "shipping" },
+                  { label: "进行中", value: "shipping" },
                   { label: "已完成", value: "completed" },
                   { label: "售后中", value: "aftersale" },
                 ].map((status) => (
@@ -3562,9 +4255,68 @@ export default function MoonCartApp() {
               </div>
               {filteredOrdersByTab.length ? (
                 <div className="space-y-3">
-                  {filteredOrdersByTab.map((record) => (
-                    <OrderCard key={record.id} record={record} onAfterSale={applyAfterSale} onAfterSaleComplete={completeAfterSale} />
-                  ))}
+                  {filteredOrdersByTab.map((record) => {
+                    const isTravelOrder = record.items.some((i) => i.category === "旅行");
+                    const travelStart = record.travelStartDate
+                      || record.items[0]?.selectedSpecs?.["出发日期"]
+                      || record.items[0]?.selectedSpecs?.["入住日期"]
+                      || record.items[0]?.selectedSpecs?.["取车日期"];
+                    const travelEnd = record.items[0]?.selectedSpecs?.["退房日期"]
+                      || record.items[0]?.selectedSpecs?.["还车日期"]
+                      || record.items[0]?.selectedSpecs?.["返程日期"];
+                    const travelNights = travelStart && travelEnd
+                      ? Math.max(1, Math.round(((parseLocalDate(travelEnd)?.getTime() || 0) - (parseLocalDate(travelStart)?.getTime() || 0)) / 86400000))
+                      : 1;
+                    const countdown = travelStart
+                      ? calculateTravelCountdown(travelStart, record.createdAt, travelNights)
+                      : null;
+                    const isDeparted = countdown && (countdown.status === "traveling" || countdown.status === "completed");
+                    return (
+                      <div key={record.id} className="space-y-2">
+                        {isTravelOrder && travelStart && countdown && (
+                          <div className="rounded-2xl bg-white p-4 shadow-soft">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xl">{record.items[0]?.emoji}</span>
+                                <div>
+                                  <div className="text-sm font-medium text-ink">{record.items[0]?.title}</div>
+                                  <div className="text-[11px] text-quiet mt-0.5">
+                                    出发日期 · {(() => {
+                                      const match = travelStart.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+                                      if (!match) return travelStart;
+                                      const d = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+                                      return d.toLocaleDateString("zh-CN", { month: "long", day: "numeric", weekday: "short" });
+                                    })()}
+                                  </div>
+                                </div>
+                              </div>
+                              <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${
+                                isDeparted
+                                  ? "bg-mint/10 text-mint"
+                                  : "bg-coral/10 text-coral-deep"
+                              }`}>
+                                {isDeparted ? "已经出发" : "待出发"}
+                              </span>
+                            </div>
+                            <div className="mt-3 flex items-center gap-2">
+                              <div className="flex-1 h-1.5 rounded-full bg-black/5 overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full transition-all ${
+                                    isDeparted ? "bg-mint" : "bg-coral"
+                                  }`}
+                                  style={{ width: `${countdown.progress}%` }}
+                                />
+                              </div>
+                              <span className={`text-xs font-medium ${isDeparted ? "text-mint" : "text-coral-deep"}`}>
+                                {countdown.displayText}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                        <OrderCard record={record} onAfterSale={applyAfterSale} onAfterSaleComplete={completeAfterSale} />
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="rounded-[20px] bg-white/70 backdrop-blur-md border border-white/50 p-8 text-center">
@@ -3812,7 +4564,7 @@ export default function MoonCartApp() {
 
         {view === "flight" && (
           <Screen key="flight">
-            <Header title="机票预订" onBack={() => setView("home")} />
+            <Header title="机票预订" onBack={() => setView(prevView)} />
 
             <div className="mt-4 mx-4 rounded-[28px] bg-white p-5 shadow-soft">
               <div className="flex rounded-[20px] overflow-hidden bg-black/[0.03] p-1">
@@ -3967,7 +4719,7 @@ export default function MoonCartApp() {
                 disabled={!flightDate || flightFrom === flightTo || flightSearching}
                 className="mt-6 w-full rounded-full py-4 text-base font-semibold text-white shadow-lg active:scale-[0.98] transition-transform disabled:opacity-50 disabled:active:scale-100"
                 style={{ background: "linear-gradient(90deg, #FF5000 0%, #FF8A00 100%)", boxShadow: "0 8px 20px rgba(255,80,0,0.35)" }}
-                onClick={runFlightSearch}
+                onClick={() => runFlightSearch()}
               >
                 {flightSearching ? "搜索中..." : !flightDate ? "请选择日期" : "搜索机票"}
               </button>
@@ -4082,23 +4834,19 @@ export default function MoonCartApp() {
               <div className="mt-4 mx-4">
                 <div className="flex items-center justify-between mb-3">
                   <span className="font-semibold">热门航线</span>
-                  <span className="text-xs text-quiet">更多</span>
+                  <button
+                    onClick={() => setHotRoutesSeed(Date.now())}
+                    className="text-xs text-primary"
+                  >
+                    换一批
+                  </button>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  {[
-                    { from: "北京", to: "上海", price: "¥680" },
-                    { from: "上海", to: "广州", price: "¥720" },
-                    { from: "广州", to: "成都", price: "¥850" },
-                    { from: "成都", to: "杭州", price: "¥690" },
-                    { from: "杭州", to: "深圳", price: "¥780" },
-                    { from: "深圳", to: "北京", price: "¥820" },
-                  ].map((route) => (
+                  {hotRoutes.map((route) => (
                     <button
                       key={`${route.from}-${route.to}`}
                       onClick={() => {
-                        setFlightFrom(route.from);
-                        setFlightTo(route.to);
-                        setFlightResults(null);
+                        runFlightSearch({ from: route.from, to: route.to });
                       }}
                       className="flex items-center justify-between rounded-[20px] bg-white p-4 shadow-soft active:scale-95 transition-transform"
                     >
@@ -4110,7 +4858,49 @@ export default function MoonCartApp() {
                         </div>
                         <div className="mt-1 text-xs text-quiet">今日最低</div>
                       </div>
-                      <span className="text-primary font-semibold">{route.price}</span>
+                      <span className="text-primary font-semibold">¥{route.price}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* 随机推荐航线 */}
+                <div className="flex items-center justify-between mb-3 mt-6">
+                  <span className="font-semibold">猜你喜欢</span>
+                  <button
+                    onClick={() => setRecommendSeed(Date.now())}
+                    className="text-xs text-primary"
+                  >
+                    换一批
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  {recommendedRoutes.map((route) => (
+                    <button
+                      key={`rec-${route.from}-${route.to}`}
+                      onClick={() => {
+                        runFlightSearch({ from: route.from, to: route.to });
+                      }}
+                      className="w-full flex items-center justify-between rounded-[20px] bg-white p-4 shadow-soft active:scale-95 transition-transform"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-lg">
+                          ✈️
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold">{route.from}</span>
+                            <span className="text-quiet">→</span>
+                            <span className="font-semibold">{route.to}</span>
+                          </div>
+                          <div className="mt-0.5 text-xs text-quiet">
+                            {route.tag} · {route.duration}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-primary font-semibold">¥{route.price}</div>
+                        <div className="text-xs text-quiet">起</div>
+                      </div>
                     </button>
                   ))}
                 </div>
