@@ -4586,47 +4586,60 @@ export default function MoonCartApp() {
                 </button>
               </div>
 
-              <div className="mt-5 flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => { setFlightCityPicker("from"); setFlightCityKeyword(""); }}
-                  className="flex-1 text-left"
-                >
-                  <div className="mb-1 text-xs text-quiet">出发地</div>
-                  <div className="flex items-center gap-2 rounded-[16px] bg-black/[0.03] px-4 py-3 active:scale-[0.98] transition-transform">
-                    <span className="text-lg">📍</span>
-                    <span className="font-semibold">{flightFrom}</span>
-                    <svg className="ml-auto h-5 w-5 text-quiet" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
+              <div className="mt-5">
+                <div className="flex items-center gap-3">
+                  <div className="flex-1">
+                    <div className="mb-1 text-xs text-quiet">出发地</div>
+                    <button
+                      type="button"
+                      onClick={() => { setFlightCityPicker("from"); setFlightCityKeyword(""); }}
+                      className="w-full text-left"
+                    >
+                      <div className="flex items-center gap-2 rounded-[16px] bg-black/[0.03] px-4 py-3 active:scale-[0.98] transition-transform">
+                        <span className="text-lg">📍</span>
+                        <span className="font-semibold">{flightFrom}</span>
+                        <svg className="ml-auto h-5 w-5 text-quiet" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </button>
                   </div>
-                </button>
-                <button
-                  onClick={() => {
-                    const temp = flightFrom;
-                    setFlightFrom(flightTo);
-                    setFlightTo(temp);
-                  }}
-                  className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-white shadow-soft active:scale-90 transition-transform"
-                >
-                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 11l5-5m0 0l5 5m-5-5v12" />
-                  </svg>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setFlightCityPicker("to"); setFlightCityKeyword(""); }}
-                  className="flex-1 text-left"
-                >
-                  <div className="mb-1 text-xs text-quiet">目的地</div>
-                  <div className="flex items-center gap-2 rounded-[16px] bg-black/[0.03] px-4 py-3 active:scale-[0.98] transition-transform">
-                    <span className="text-lg">📍</span>
-                    <span className="font-semibold">{flightTo}</span>
-                    <svg className="ml-auto h-5 w-5 text-quiet" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
+                  <button
+                    onClick={() => {
+                      const temp = flightFrom;
+                      setFlightFrom(flightTo);
+                      setFlightTo(temp);
+                    }}
+                    className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-white shadow-soft active:scale-90 transition-transform -mt-5"
+                  >
+                    {flightTripType === "oneway" ? (
+                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    ) : (
+                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16l-4-4m0 0l4-4m-4 4h20" />
+                      </svg>
+                    )}
+                  </button>
+                  <div className="flex-1">
+                    <div className="mb-1 text-xs text-quiet">目的地</div>
+                    <button
+                      type="button"
+                      onClick={() => { setFlightCityPicker("to"); setFlightCityKeyword(""); }}
+                      className="w-full text-left"
+                    >
+                      <div className="flex items-center gap-2 rounded-[16px] bg-black/[0.03] px-4 py-3 active:scale-[0.98] transition-transform">
+                        <span className="text-lg">📍</span>
+                        <span className="font-semibold">{flightTo}</span>
+                        <svg className="ml-auto h-5 w-5 text-quiet" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </button>
                   </div>
-                </button>
+                </div>
               </div>
 
               <div className="mt-4 flex items-center gap-3">
