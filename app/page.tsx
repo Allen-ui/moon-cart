@@ -733,8 +733,6 @@ export default function MoonCartApp() {
     0,
   );
   const selectedCount = selectedItems.reduce((sum, item) => sum + item.quantity, 0);
-  const isAllSelected = cart.length > 0 && selectedCartItems.size === cart.length;
-
   const cartTabItems = cart.filter((item) =>
     cartTab === "takeout"
       ? item.category === "外卖"
@@ -743,7 +741,6 @@ export default function MoonCartApp() {
       : item.category !== "外卖" && item.category !== "旅行"
   );
   const cartTabSelectedItems = cartTabItems.filter((item) => selectedCartItems.has(item.id));
-  const isTabAllSelected = cartTabItems.length > 0 && cartTabSelectedItems.length === cartTabItems.length;
 
   const categoriesInCart = new Set(
     cart.map((item) => {
@@ -841,28 +838,19 @@ export default function MoonCartApp() {
   };
 
   const toggleSelectAll = () => {
-    if (isTabAllSelected) {
-      const newSelected = new Set(selectedCartItems);
-      cartTabItems.forEach((item) => newSelected.delete(item.id));
-      setSelectedCartItems(newSelected);
+    const newSelected = new Set(selectedCartItems);
+    if (isDisplayAllSelected) {
+      displayCartItems.forEach((item) => newSelected.delete(item.id));
     } else {
-      const newSelected = new Set(selectedCartItems);
-      cartTabItems.forEach((item) => newSelected.add(item.id));
-      setSelectedCartItems(newSelected);
+      displayCartItems.forEach((item) => newSelected.add(item.id));
     }
+    setSelectedCartItems(newSelected);
   };
 
   const couponRecommendProducts = useMemo(() => {
     if (couponAmount <= 0) return [];
     const cartIds = new Set(cart.map((item) => item.id));
-    let categoryFilter: string[] = [];
-    if (cartSelectedCategory === "takeout") {
-      categoryFilter = ["外卖"];
-    } else if (cartSelectedCategory === "travel") {
-      categoryFilter = ["旅行"];
-    } else {
-      categoryFilter = ["数码", "美妆护肤", "女装", "男装", "箱包", "黄金珠宝", "家电", "家居用品", "食品饮料", "生鲜水果", "母婴用品", "运动户外", "图书音像", "宠物用品", "汽车用品", "医药健康"];
-    }
+    const categoryFilter = channelCategories[cartSelectedCategory === "takeout" ? "takeout" : cartSelectedCategory === "travel" ? "travel" : "index"];
     return products
       .filter((p) => !cartIds.has(p.id) && categoryFilter.includes(p.category) && p.price >= couponAmount)
       .sort((a, b) => a.price - b.price)
@@ -934,7 +922,19 @@ export default function MoonCartApp() {
       }
     }
     if (orderStatusFilter !== "all") {
-      purchases = purchases.filter((p) => p.status === orderStatusFilter);
+      purchases = purchases.filter((p) => {
+        // 旅游订单：根据出行日期计算实际状态，不直接使用数据层的 shipping 状态
+        if (p.travelStartDate && p.items.every((item) => item.category === "旅行")) {
+          const travelNights = p.items[0]?.selectedSpecs
+            ? Math.max(1, Math.round(((parseLocalDate(p.items[0].selectedSpecs["退房日期"] || p.items[0].selectedSpecs["还车日期"] || p.travelStartDate || "")?.getTime() || 0) - (parseLocalDate(p.travelStartDate || "")?.getTime() || 0)) / 86400000))
+            : 1;
+          const countdown = calculateTravelCountdown(p.travelStartDate, p.createdAt, travelNights);
+          if (orderStatusFilter === "shipping") return countdown.status === "countdown" || countdown.status === "traveling";
+          if (orderStatusFilter === "completed") return countdown.status === "completed";
+          return false;
+        }
+        return p.status === orderStatusFilter;
+      });
     }
     if (orderSearchQuery.trim()) {
       const query = orderSearchQuery.trim().toLowerCase();
