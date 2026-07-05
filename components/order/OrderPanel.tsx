@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { type DeliveryOrder, getDeliverySteps, calculateTravelCountdown, parseLocalDate } from "@/utils/order";
 import { money } from "@/utils/format";
@@ -52,26 +52,25 @@ export function OrderPanel({
   const safeIndex = Math.min(activeIndex, orders.length - 1);
   const selected = orders[safeIndex];
   const selectedSteps = getDeliverySteps(selected.channel);
-  
-  const { progress, displayText } = useMemo(() => {
-    if (selected.channel === "travel" && selected.travelStartDate) {
-      const specs = selected.items[0]?.selectedSpecs;
-      const startDate = parseLocalDate(selected.travelStartDate);
-      const endDate = parseLocalDate(
-        specs?.["退房日期"] || specs?.["还车日期"] || selected.travelStartDate
-      );
-      const travelNights = specs
-        ? Math.round(((endDate?.getTime() || 0) - (startDate?.getTime() || 0)) / 86400000)
-        : 1;
-      const countdown = calculateTravelCountdown(selected.travelStartDate, selected.createdAt, travelNights);
-      return { progress: countdown.progress, displayText: countdown.displayText };
-    }
-    return {
-      progress: Math.round(((selected.stepIndex + 1) / selectedSteps.length) * 100),
-      displayText: selectedSteps[selected.stepIndex],
-    };
-    // tick 用于每秒触发重计算
-  }, [selected, selectedSteps, tick]);
+
+  let progress: number;
+  let displayText: string;
+  if (selected.channel === "travel" && selected.travelStartDate) {
+    const specs = selected.items[0]?.selectedSpecs;
+    const startDate = parseLocalDate(selected.travelStartDate);
+    const endDate = parseLocalDate(
+      specs?.["退房日期"] || specs?.["还车日期"] || selected.travelStartDate
+    );
+    const travelNights = specs
+      ? Math.round(((endDate?.getTime() || 0) - (startDate?.getTime() || 0)) / 86400000)
+      : 1;
+    const countdown = calculateTravelCountdown(selected.travelStartDate, selected.createdAt, travelNights);
+    progress = countdown.progress;
+    displayText = countdown.displayText;
+  } else {
+    progress = Math.round(((selected.stepIndex + 1) / selectedSteps.length) * 100);
+    displayText = selectedSteps[selected.stepIndex];
+  }
 
   return (
     <div className="fixed inset-x-0 top-0 z-40 mx-auto max-w-[460px] px-3 pt-3">
