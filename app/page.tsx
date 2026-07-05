@@ -43,7 +43,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   categories,
   pickProducts,
-  products,
+  products as staticProducts,
   type Product,
 } from "@/data/products";
 import type { View } from "@/types";
@@ -220,6 +220,8 @@ const getBlindBoxModule = (): Promise<BlindBoxModule> => {
 export default function MoonCartApp() {
   const [view, setView] = useState<View>("home");
   const [prevView, setPrevView] = useState<View>("home");
+  const [products, setProducts] = useState<Product[]>(staticProducts);
+  const [shopImages, setShopImages] = useState<Record<string, string>>({});
   const [homeTab, setHomeTab] = useState<"index" | "takeout" | "travel">("index");
   const [listChannel, setListChannel] = useState<"index" | "takeout" | "travel">("index");
   const [categoryChannel, setCategoryChannel] = useState<"index" | "takeout" | "travel">("index");
@@ -560,6 +562,32 @@ export default function MoonCartApp() {
   useEffect(() => {
     refreshStreak();
   }, [refreshStreak]);
+
+  // 从服务器获取后台修改的商品数据（覆盖 + 自定义商品 + 店铺主图）
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/products")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled || !data?.products) return;
+        setProducts(data.products);
+        if (data.shopImages) setShopImages(data.shopImages);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  // 同步心愿单和留言到服务器
+  useEffect(() => {
+    const wishlist = stats.wishlist ?? [];
+    const messages = stats.messages ?? [];
+    if (wishlist.length === 0 && messages.length === 0) return;
+    fetch("/api/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ wishlist, messages }),
+    }).catch(() => {});
+  }, [stats.wishlist, stats.messages]);
 
   useEffect(() => {
     if (!stats.nickname) {

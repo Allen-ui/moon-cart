@@ -6,12 +6,14 @@ export type Product = {
   category: string;
   subCategory?: string;
   shop?: string;
+  shopImage?: string;
   sales: string;
   coupon: string;
   tags: string[];
   intro: string;
   palette: string;
   emoji: string;
+  imageUrl?: string;
   specs?: Array<{ label: string; options: Array<{ name: string; priceDelta: number }> }>;
 };
 

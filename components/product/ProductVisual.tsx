@@ -20,17 +20,26 @@ export function ProductVisual({
     <div
       className={`${size} relative flex items-center justify-center overflow-hidden bg-black/[0.03]`}
     >
-      <span
-        className={
-          large
-            ? "relative text-9xl"
-            : compact
-              ? "relative text-5xl"
-              : "relative text-7xl"
-        }
-      >
-        {product.emoji}
-      </span>
+      {product.imageUrl ? (
+        <img
+          src={product.imageUrl}
+          alt={product.title}
+          className="absolute inset-0 h-full w-full object-cover"
+          loading="lazy"
+        />
+      ) : (
+        <span
+          className={
+            large
+              ? "relative text-9xl"
+              : compact
+                ? "relative text-5xl"
+                : "relative text-7xl"
+          }
+        >
+          {product.emoji}
+        </span>
+      )}
     </div>
   );
 }
