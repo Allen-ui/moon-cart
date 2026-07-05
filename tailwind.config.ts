@@ -5,10 +5,10 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // 深夜星空底
-        night: "#0a0a1a",
-        "night-soft": "#12122a",
-        "night-card": "#1a1a38",
+        // 暖浅色底
+        night: "#FDF3EC",
+        "night-soft": "#FFF8F3",
+        "night-card": "#FFFFFF",
         // 主橙（iOS 规范，#FF5000）
         primary: "#FF5000",
         "primary-soft": "#FF7A3D",
@@ -19,17 +19,17 @@ const config: Config = {
         "glass-border": "rgba(255, 255, 255, 0.18)",
         "glass-highlight": "rgba(255, 255, 255, 0.22)",
         // 文字
-        ink: "#FFFFFF",
-        "ink-secondary": "rgba(255, 255, 255, 0.7)",
-        "ink-tertiary": "rgba(255, 255, 255, 0.4)",
+        ink: "#2C2C2A",
+        "ink-secondary": "#5F5E5A",
+        "ink-tertiary": "#888780",
         // 兼容旧名
-        paper: "#0a0a1a",
+        paper: "#FDF3EC",
         price: "#FF5000",
         coral: "#FF5000",
         gold: "#FFD23F",
-        quiet: "rgba(255, 255, 255, 0.45)",
+        quiet: "#5F5E5A",
         mint: "#10B981",
-        "paper-soft": "#12122a",
+        "paper-soft": "#FFF8F3",
         // 糖果色备用（保持兼容）
         candy: "#FF5000",
         bubblegum: "#FF8FB1",

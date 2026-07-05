@@ -370,8 +370,7 @@ export default function MoonCartApp() {
       setFlightSearching(false);
     }, 700);
   };
-  // 从 localStorage 读取主题偏好，与 layout.tsx 中的内联初始化脚本保持一致
-  // 服务端渲染时默认 false（浅色），客户端 hydration 后同步真实值
+  // 默认浅色，避免旧主题缓存造成首屏先黑再切白
   const [darkMode, setDarkMode] = useState(false);
   const [orderFilter, setOrderFilter] = useState("all");
   const [orderSearchQuery, setOrderSearchQuery] = useState("");
@@ -462,7 +461,7 @@ export default function MoonCartApp() {
     document.documentElement.classList.add(theme);
     document.documentElement.style.colorScheme = theme;
     try {
-      localStorage.setItem("moon-cart-theme", theme);
+      localStorage.removeItem("moon-cart-theme");
     } catch {}
   }, [darkMode]);
 

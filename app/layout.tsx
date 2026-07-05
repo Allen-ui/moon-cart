@@ -14,15 +14,14 @@ export const viewport: Viewport = {
   themeColor: "#FF5000",
 };
 
-// 内联脚本：在页面渲染前就设置好主题类，避免首屏黑色背景闪烁
-// 默认使用浅色模式（light），与 app/page.tsx 中 darkMode: false 初始值保持一致
+// 内联脚本：在页面渲染前固定浅色主题，避免旧缓存导致首屏先黑再切白
 const themeInitScript = `
 (function() {
   try {
-    var stored = localStorage.getItem('moon-cart-theme');
-    var theme = stored || 'light';
-    document.documentElement.classList.add(theme);
-    document.documentElement.style.colorScheme = theme;
+    localStorage.removeItem('moon-cart-theme');
+    document.documentElement.classList.remove('dark');
+    document.documentElement.classList.add('light');
+    document.documentElement.style.colorScheme = 'light';
   } catch (e) {
     document.documentElement.classList.add('light');
     document.documentElement.style.colorScheme = 'light';
